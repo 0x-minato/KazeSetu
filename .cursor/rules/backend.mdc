@@ -1,0 +1,62 @@
+---
+alwaysApply: false
+---
+# KazeSetu Backend Rules
+
+## Architecture
+
+- Backend follows a Modular Monolith architecture.
+- Every feature is implemented as a module.
+- Do not create additional Express applications.
+
+## Module Structure
+
+Each module must contain:
+
+- controller
+- service
+- repository
+- routes
+- dto
+- validator
+- types
+
+## Controllers
+
+- No business logic.
+- Validate request.
+- Call service.
+- Return response.
+
+## Services
+
+- All business logic belongs here.
+- Services never communicate directly with Express.
+
+## Repositories
+
+- Only repositories access Prisma.
+- No Prisma queries outside repositories.
+
+## Validation
+
+- Use Zod.
+- Validate every request body, params, and query.
+
+## Errors
+
+- Throw typed application errors.
+- Use centralized error middleware.
+
+## Database
+
+- PostgreSQL + Prisma.
+- Use transactions where appropriate.
+- Never expose Prisma models directly to clients.
+
+## Code Style
+
+- TypeScript strict mode.
+- No `any`.
+- Prefer composition over inheritance.
+- Keep functions focused and small.

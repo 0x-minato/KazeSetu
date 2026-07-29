@@ -1,0 +1,310 @@
+---
+alwaysApply: true
+---
+---
+description: Global architecture rules for the KazeSetu codebase. Apply these rules whenever generating or modifying code.
+alwaysApply: true
+---
+
+# KazeSetu Architecture Rules
+
+You are contributing to **KazeSetu**, a production-grade DeFi platform.
+
+Treat this repository as a real software product maintained by a team of senior engineers.
+
+Prioritize maintainability, consistency, scalability, and readability over writing the shortest amount of code.
+
+Never generate tutorial-style code.
+
+---
+
+# Fundamental Principles
+
+Always optimize for
+
+- Maintainability
+- Scalability
+- Readability
+- Separation of Concerns
+- Testability
+- Explicitness
+- Consistency
+
+Do not sacrifice architecture for convenience.
+
+When multiple implementations are possible, choose the one that best fits the existing architecture.
+
+If a request would violate these rules, explain why and ask for clarification instead of silently changing the architecture.
+
+---
+
+# Project Structure
+
+This project is a **pnpm Monorepo**.
+
+Applications live inside `apps/`.
+
+Reusable code belongs inside `packages/`.
+
+Documentation belongs inside `docs/`.
+
+Smart contracts live inside `contracts/`.
+
+Never duplicate shared code across applications.
+
+If multiple applications require the same logic, move it into `packages/`.
+
+---
+
+# Backend Architecture
+
+The backend follows a **Modular Monolith** architecture.
+
+Do not introduce microservices.
+
+Do not create additional Express applications.
+
+Every business capability should exist as an independent module.
+
+Examples include
+
+- Authentication
+- Users
+- Portfolio
+- Tokens
+- Prices
+- Pools
+- Swaps
+- Liquidity
+- Rewards
+- Analytics
+- Notifications
+
+Modules should communicate through services or well-defined interfaces.
+
+Avoid tightly coupling unrelated modules.
+
+---
+
+# Application Responsibilities
+
+## Web
+
+Responsible only for
+
+- UI
+- User interactions
+- Wallet integration
+- API communication
+
+Business logic does not belong in the frontend.
+
+---
+
+## API
+
+Responsible for
+
+- Business logic
+- Validation
+- Authentication
+- Database interaction
+- Protocol orchestration
+
+Treat the API as the primary business layer.
+
+---
+
+## Worker
+
+Responsible only for asynchronous jobs.
+
+Examples
+
+- reward calculations
+- scheduled jobs
+- notifications
+- synchronization
+
+Workers must never expose HTTP endpoints.
+
+---
+
+## Blockchain Indexer
+
+Responsible only for blockchain synchronization.
+
+Responsibilities include
+
+- listening to events
+- parsing events
+- updating PostgreSQL
+- dispatching background jobs
+
+Do not place unrelated business logic inside the indexer.
+
+---
+
+# Dependency Direction
+
+Respect the following flow
+
+Client
+
+↓
+
+Controller
+
+↓
+
+Service
+
+↓
+
+Repository
+
+↓
+
+Database
+
+Never bypass layers.
+
+Controllers should never access the database.
+
+Repositories should never call controllers.
+
+Business logic belongs inside services.
+
+---
+
+# Shared Code
+
+Before creating a new utility, helper, type, or constant:
+
+1. Search the repository.
+2. Reuse an existing implementation if possible.
+3. Only create new abstractions when necessary.
+
+Avoid duplicate implementations.
+
+---
+
+# Source of Truth
+
+Blockchain stores protocol state.
+
+Backend stores application state.
+
+Examples of blockchain state
+
+- balances
+- ownership
+- contract events
+- LP ownership
+
+Examples of backend state
+
+- analytics
+- notifications
+- portfolio history
+- cached values
+- user preferences
+- protocol metrics
+
+Do not duplicate blockchain state unless necessary for performance or analytics.
+
+---
+
+# Event Driven Design
+
+Whenever appropriate, prefer event-driven workflows.
+
+Example
+
+Swap Completed
+
+↓
+
+Portfolio Updated
+
+↓
+
+Analytics Updated
+
+↓
+
+Notification Sent
+
+Avoid tightly coupling unrelated modules.
+
+---
+
+# Extensibility
+
+Write code that is easy to extend.
+
+Prefer extension over modification.
+
+Adding a new feature should require minimal changes to existing modules.
+
+Avoid creating rigid architectures.
+
+---
+
+# Consistency
+
+Before generating code
+
+- inspect surrounding files
+- follow existing naming conventions
+- follow existing folder structures
+- follow existing patterns
+
+Never introduce a new coding style into an existing module.
+
+Consistency is more important than personal preference.
+
+---
+
+# Production Mindset
+
+Assume
+
+- multiple developers maintain this repository
+- millions of API requests
+- millions of blockchain events
+- production deployment
+
+Avoid shortcuts that would not be acceptable in production systems.
+
+---
+
+# Documentation
+
+When introducing significant architectural changes
+
+- recommend updating documentation
+- keep naming consistent
+- preserve existing terminology
+
+Do not automatically rewrite documentation unless requested.
+
+---
+
+# AI Behavior
+
+Before generating code
+
+1. Understand the existing architecture.
+2. Reuse existing abstractions.
+3. Follow repository conventions.
+4. Minimize unnecessary changes.
+5. Generate production-quality code.
+
+If requirements are ambiguous,
+
+ask questions instead of making assumptions.
+
+Never invent architecture that does not already exist.
+
+Always preserve the long-term maintainability of the project.
