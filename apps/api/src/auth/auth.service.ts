@@ -1,8 +1,39 @@
-import { randomBytes } from "node:crypto"
-import { CLOCK_SKEW_MS, MAX_MESSAGE_AGE_MS, NONCE_TTL_MS, SIWE_ALLOWED_CHAIN_IDS, SIWE_DOMAIN, SIWE_URI } from "../config/env"
+import { createHash, randomBytes } from "node:crypto"
+import { Prisma } from "../../app/generated/prisma/client.js"
+import { 
+  CLOCK_SKEW_MS, 
+  MAX_MESSAGE_AGE_MS, 
+  NONCE_TTL_MS, 
+  SIWE_ALLOWED_CHAIN_IDS, 
+  SIWE_DOMAIN, 
+  SIWE_URI,
+  ACCESS_TOKEN_TTL_SECONDS,
+  JWT_ACCESS_SECRET,
+  REFRESH_TOKEN_TTL_MS 
+} from "../config/env"
 import { SiweMessage } from "siwe"
 import { badRequest, unauthorized } from "../utils/api-error"
-import type { VerifyAuthenticationInput } from "./auth.types"
+import type {
+  AuthenticationResult,
+  RefreshTokenRotationResult,
+  VerifyAuthenticationInput
+} from "./auth.types"
+import { RefreshTokenRotationConflictError } from "./auth.errors"
+import { createRefreshToken, createUserWithWallet, findRefreshTokenByHash, findWalletByAddress, replaceRefreshToken, revokeRefreshTokenByHash } from "./auth.repository"
+import { SignJWT } from "jose"
+
+const accessTokenSecret = new TextEncoder().encode(JWT_ACCESS_SECRET)
+
+const generateAccessToken = (userId: string): Promise<string> => {
+  const now = Math.floor(Date.now() / 1000)
+
+  return new SignJWT()
+    .setProtectedHeader({ alg: "HS256", typ: "JWT" })
+    .setSubject(userId)
+    .setIssuedAt(now)
+    .setExpirationTime(now + ACCESS_TOKEN_TTL_SECONDS)
+    .sign(accessTokenSecret)
+}
 
 const nonceStore = new Map<string, number>()
 export const generateNonce = (): string => {
@@ -22,7 +53,9 @@ const consumeNonce = (nonce: string): boolean => {
     return expiresAt !== undefined && expiresAt > Date.now()
 }
 
-export const verifyAuthentication = async ({message, signature}: VerifyAuthenticationInput) => {
+export const verifyAuthentication = async (
+  {message, signature}: VerifyAuthenticationInput
+): Promise<AuthenticationResult> => {
     let parsedMessage: SiweMessage
     try {
         parsedMessage = new SiweMessage(message)
@@ -47,9 +80,33 @@ export const verifyAuthentication = async ({message, signature}: VerifyAuthentic
     if (!consumeNonce(parsedMessage.nonce)) {
         throw unauthorized("Invalid, expired, or previously used nonce")
     }
+    const normalizedAddress = parsedMessage.address.toLowerCase()
+
+    const userId = await findOrCreateUserByWalletAddress(normalizedAddress)
+
+    const accessToken = await generateAccessToken(userId)
+    const refreshToken = randomBytes(32).toString("base64url")
+
+    const refreshTokenHash = createHash("sha256")
+      .update(refreshToken)
+      .digest("hex")
+
+    const refreshTokenExpiresAt = new Date(
+      Date.now() + REFRESH_TOKEN_TTL_MS
+    )
+
+    await createRefreshToken(
+      refreshTokenHash,
+      userId,
+      refreshTokenExpiresAt
+    )
+
     return {
-        address: parsedMessage.address.toLowerCase(),
+        userId,
+        address: normalizedAddress,
         chainId: parsedMessage.chainId,
+        accessToken,
+        refreshToken
     }
 }
 
@@ -107,5 +164,84 @@ const validateSiweContext = (message: SiweMessage) => {
     if (notBefore > now + CLOCK_SKEW_MS) {
       throw unauthorized("SIWE message is not active yet")
     }
+  }
+}
+
+export const replaceRefreshTokenService = async (
+  refreshTokenCookie: string
+): Promise<RefreshTokenRotationResult> => {
+  const refreshTokenHash = createHash("sha256")
+    .update(refreshTokenCookie)
+    .digest("hex")
+  const refreshTokenDB = await findRefreshTokenByHash(refreshTokenHash)
+  if (!refreshTokenDB || refreshTokenDB.revokedAt || refreshTokenDB.expiresAt <= new Date()) {
+    throw unauthorized("Refresh Token is invalid or expired")
+  }
+  const userId = refreshTokenDB.userId
+  const newAccessToken = await generateAccessToken(userId)
+  const newRefreshToken = randomBytes(32).toString("base64url")
+  const newRefreshTokenHash = createHash("sha256")
+    .update(newRefreshToken)
+    .digest("hex")
+
+  const newRefreshTokenExpiresAt = new Date(
+    Date.now() + REFRESH_TOKEN_TTL_MS
+  )
+
+  try {
+    await replaceRefreshToken(
+      refreshTokenHash,
+      newRefreshTokenHash,
+      userId,
+      newRefreshTokenExpiresAt
+    )
+  } catch (error) {
+    if (error instanceof RefreshTokenRotationConflictError) {
+      throw unauthorized("Refresh token is invalid, expired, or already revoked")
+    }
+
+    throw error
+  }
+
+  return {
+    newRefreshToken,
+    newAccessToken
+  }
+}
+
+export const logoutService = async(refreshTokenCookie: string): Promise<void> => {
+  const refreshTokenHash = createHash("sha256")
+    .update(refreshTokenCookie)
+    .digest("hex")
+  await revokeRefreshTokenByHash(refreshTokenHash)
+}
+
+
+const findOrCreateUserByWalletAddress = async (
+  address: string,
+): Promise<string> => {
+  const existingWallet = await findWalletByAddress(address)
+
+  if (existingWallet) {
+    return existingWallet.userId
+  }
+
+  try {
+    const user = await createUserWithWallet(address)
+    return user.id
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      const concurrentlyCreatedWallet =
+        await findWalletByAddress(address)
+
+      if (concurrentlyCreatedWallet) {
+        return concurrentlyCreatedWallet.userId
+      }
+    }
+
+    throw error
   }
 }

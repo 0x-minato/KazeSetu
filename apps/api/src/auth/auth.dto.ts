@@ -7,4 +7,6 @@ export const verifyAuthSchema = z.object({
     .regex(/^0x(?:[0-9a-fA-F]{2})+$/, "Invalid signature format"),
 })
 
+
+
 export type verifyAuthDTO = z.infer<typeof verifyAuthSchema>
