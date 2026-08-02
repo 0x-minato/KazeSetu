@@ -7,8 +7,6 @@ import {
   SIWE_ALLOWED_CHAIN_IDS, 
   SIWE_DOMAIN, 
   SIWE_URI,
-  ACCESS_TOKEN_TTL_SECONDS,
-  JWT_ACCESS_SECRET,
   REFRESH_TOKEN_TTL_MS 
 } from "../config/env"
 import { SiweMessage } from "siwe"
@@ -19,21 +17,19 @@ import type {
   VerifyAuthenticationInput
 } from "./auth.types"
 import { RefreshTokenRotationConflictError } from "./auth.errors"
-import { createRefreshToken, createUserWithWallet, findRefreshTokenByHash, findWalletByAddress, replaceRefreshToken, revokeRefreshTokenByHash } from "./auth.repository"
-import { SignJWT } from "jose"
+import { 
+  createRefreshSessionWithToken, 
+  createUserWithWallet, 
+  findRefreshTokenByHash, 
+  findWalletByAddress, 
+  replaceRefreshToken, 
+  revokeRefreshSession, 
+  revokeRefreshSessionByTokenHash 
+} from "./auth.repository"
+import { generateAccessToken } from "./auth.token"
 
-const accessTokenSecret = new TextEncoder().encode(JWT_ACCESS_SECRET)
-
-const generateAccessToken = (userId: string): Promise<string> => {
-  const now = Math.floor(Date.now() / 1000)
-
-  return new SignJWT()
-    .setProtectedHeader({ alg: "HS256", typ: "JWT" })
-    .setSubject(userId)
-    .setIssuedAt(now)
-    .setExpirationTime(now + ACCESS_TOKEN_TTL_SECONDS)
-    .sign(accessTokenSecret)
-}
+type RefreshTokenWithSession = NonNullable<
+Awaited<ReturnType<typeof findRefreshTokenByHash>>>
 
 const nonceStore = new Map<string, number>()
 export const generateNonce = (): string => {
@@ -95,9 +91,9 @@ export const verifyAuthentication = async (
       Date.now() + REFRESH_TOKEN_TTL_MS
     )
 
-    await createRefreshToken(
-      refreshTokenHash,
+    await createRefreshSessionWithToken(
       userId,
+      refreshTokenHash,
       refreshTokenExpiresAt
     )
 
@@ -106,7 +102,8 @@ export const verifyAuthentication = async (
         address: normalizedAddress,
         chainId: parsedMessage.chainId,
         accessToken,
-        refreshToken
+        refreshToken,
+        refreshTokenExpiresAt,
     }
 }
 
@@ -174,10 +171,10 @@ export const replaceRefreshTokenService = async (
     .update(refreshTokenCookie)
     .digest("hex")
   const refreshTokenDB = await findRefreshTokenByHash(refreshTokenHash)
-  if (!refreshTokenDB || refreshTokenDB.revokedAt || refreshTokenDB.expiresAt <= new Date()) {
-    throw unauthorized("Refresh Token is invalid or expired")
-  }
-  const userId = refreshTokenDB.userId
+
+  const validatedRefreshToken = await validateRefreshTokenForRotation(refreshTokenDB)
+
+  const userId = validatedRefreshToken.session.userId
   const newAccessToken = await generateAccessToken(userId)
   const newRefreshToken = randomBytes(32).toString("base64url")
   const newRefreshTokenHash = createHash("sha256")
@@ -185,7 +182,10 @@ export const replaceRefreshTokenService = async (
     .digest("hex")
 
   const newRefreshTokenExpiresAt = new Date(
-    Date.now() + REFRESH_TOKEN_TTL_MS
+    Math.min(
+      Date.now() + REFRESH_TOKEN_TTL_MS,
+      validatedRefreshToken.session.expiresAt.getTime(),
+    ),
   )
 
   try {
@@ -196,16 +196,20 @@ export const replaceRefreshTokenService = async (
       newRefreshTokenExpiresAt
     )
   } catch (error) {
-    if (error instanceof RefreshTokenRotationConflictError) {
-      throw unauthorized("Refresh token is invalid, expired, or already revoked")
+    if (!(error instanceof RefreshTokenRotationConflictError)) {
+      throw error
     }
+
+    const refreshTokenDB = await findRefreshTokenByHash(refreshTokenHash)
+    await validateRefreshTokenForRotation(refreshTokenDB)
 
     throw error
   }
 
   return {
     newRefreshToken,
-    newAccessToken
+    newAccessToken,
+    refreshTokenExpiresAt: newRefreshTokenExpiresAt,
   }
 }
 
@@ -213,7 +217,7 @@ export const logoutService = async(refreshTokenCookie: string): Promise<void> =>
   const refreshTokenHash = createHash("sha256")
     .update(refreshTokenCookie)
     .digest("hex")
-  await revokeRefreshTokenByHash(refreshTokenHash)
+  await revokeRefreshSessionByTokenHash(refreshTokenHash)
 }
 
 
@@ -244,4 +248,31 @@ const findOrCreateUserByWalletAddress = async (
 
     throw error
   }
+}
+
+const validateRefreshTokenForRotation = async (
+  refreshToken: RefreshTokenWithSession | null,
+): Promise<RefreshTokenWithSession> => {
+  if (!refreshToken) {
+    throw unauthorized("Invalid refresh token")
+  }
+
+  if (refreshToken.session.revokedAt) {
+    throw unauthorized("Refresh session is revoked")
+  }
+
+  if (refreshToken.session.expiresAt <= new Date()) {
+    throw unauthorized("Refresh session has expired")
+  }
+
+  if (refreshToken.revokedAt) {
+    await revokeRefreshSession(refreshToken.sessionId)
+    throw unauthorized("Refresh token reuse detected")
+  }
+
+  if (refreshToken.expiresAt <= new Date()) {
+    throw unauthorized("Refresh Token is invalid or expired")
+  }
+
+  return refreshToken
 }

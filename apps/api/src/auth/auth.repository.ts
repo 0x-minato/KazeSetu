@@ -24,13 +24,51 @@ export const createUserWithWallet = (address: string) => {
     })
 }
 
-export const createRefreshToken = (tokenHash: string, userId: string, expiresAt: Date) => {
-    return prisma.refreshToken.create({
+export const createRefreshSessionWithToken = (
+    userId: string, 
+    tokenHash: string,
+    expiresAt: Date
+) => {
+    return prisma.refreshSession.create({
         data: {
-            tokenHash,
             userId,
-            expiresAt
+            expiresAt,
+            tokens: {
+                create: {
+                    tokenHash,
+                    expiresAt,
+                }
+            }
+        },
+        include: {
+            tokens: true
         }
+    })
+}
+
+export const revokeRefreshSession = (sessionId: string) => {
+    return prisma.$transaction(async (tx) => {
+        const now = new Date()
+
+        await tx.refreshSession.updateMany({
+            where: {
+                id: sessionId,
+                revokedAt: null,
+            },
+            data: {
+                revokedAt: now,
+            },
+        })
+
+        await tx.refreshToken.updateMany({
+            where: {
+                sessionId,
+                revokedAt: null,
+            },
+            data: {
+                revokedAt: now,
+            },
+        })
     })
 }
 
@@ -38,6 +76,9 @@ export const findRefreshTokenByHash = (tokenHash: string) => {
     return prisma.refreshToken.findUnique({
         where: {
             tokenHash
+        },
+        include: {
+            session: true
         }
     })
 }
@@ -49,12 +90,30 @@ export const replaceRefreshToken = (
     expiresAt: Date
 ) => {
     return prisma.$transaction(async(tx) => {
+        const now = new Date()
+        const refreshToken = await tx.refreshToken.findUnique({
+            where: {
+                tokenHash: oldTokenHash,
+                session: {
+                    userId
+                }
+            }
+        })
+
+        if(!refreshToken) {
+            throw new RefreshTokenRotationConflictError()
+        }
+
         const result = await tx.refreshToken.updateMany({
             where: {
-                userId,
                 tokenHash: oldTokenHash,
                 revokedAt: null,
-                expiresAt: { gt: new Date() }
+                expiresAt: { gt: now },
+                session: {
+                    userId,
+                    revokedAt: null,
+                    expiresAt: { gt: now }
+                }
             },
             data: {
                 revokedAt: new Date()
@@ -67,42 +126,46 @@ export const replaceRefreshToken = (
 
         return tx.refreshToken.create({
             data: {
-                userId,
                 tokenHash: newTokenHash,
-                expiresAt
+                expiresAt,
+                sessionId: refreshToken.sessionId
             }
         })
     })
 }
 
-export const revokeRefreshTokenByHash = async (tokenHash: string) => {
-    return prisma.refreshToken.updateMany({
-        where: {
-            tokenHash,
-            revokedAt: null
-        },
-        data: {
-            revokedAt: new Date()
-        }
-    })
-}
+export const revokeRefreshSessionByTokenHash = (
+    tokenHash: string
+): Promise<boolean> => {
+    return prisma.$transaction(async(tx) => {
+       const token = await tx.refreshToken.findUnique({
+            where: { tokenHash },
+            select: { sessionId: true }
+       })
 
-export const revokeAllTokensByUser = (userId: string) => {
-    return prisma.refreshToken.updateMany({
-        where: {
-            userId,
-            revokedAt: null
-        },
-        data: {
-            revokedAt: new Date()
-        }
-    })
-}
+       if (!token) {
+            return false
+       }
 
-export const deleteExpiredRefreshTokens = () => {
-    return prisma.refreshToken.deleteMany({
-        where: {
-            expiresAt: { lte: new Date() }
-        }
+       await tx.refreshSession.updateMany({
+            where:{
+                id: token.sessionId
+            },
+            data: {
+                revokedAt: new Date()
+            }
+       })
+
+       await tx.refreshToken.updateMany({
+            where:{
+                sessionId: token.sessionId,
+                revokedAt: null
+            },
+            data:{
+                revokedAt: new Date()
+            }
+       })
+
+       return true
     })
 }

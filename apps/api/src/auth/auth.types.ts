@@ -9,11 +9,13 @@ export interface AuthenticationResult {
     chainId: number
     accessToken: string
     refreshToken: string
+    refreshTokenExpiresAt: Date
 }
 
 export interface RefreshTokenRotationResult {
     newAccessToken: string
     newRefreshToken: string
+    refreshTokenExpiresAt: Date
 }
 
 export interface AuthenticatedUser {

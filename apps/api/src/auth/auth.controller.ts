@@ -1,8 +1,22 @@
 import { Request, Response } from "express";
 import { generateNonce, verifyAuthentication, replaceRefreshTokenService, logoutService } from "./auth.service";
 import { sendSuccess } from "../utils/api-response";
-import { NODE_ENV, REFRESH_TOKEN_TTL_MS } from "../config/env";
+import { NODE_ENV } from "../config/env";
 import { unauthorized } from '../utils/api-error.ts'
+
+const setRefreshTokenCookie = (
+    res: Response,
+    refreshToken: string,
+    expiresAt: Date,
+) => {
+    res.cookie("refreshToken", refreshToken, {
+        httpOnly: true,
+        secure: NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: Math.max(0, expiresAt.getTime() - Date.now()),
+        path: "/api/auth",
+    })
+}
 
 export const nonceController = (_req: Request, res: Response) => {
     const nonce = generateNonce()
@@ -12,17 +26,12 @@ export const nonceController = (_req: Request, res: Response) => {
 export const verifyController = async (req: Request, res: Response) => {
     const { message, signature } = req.body
     const { 
-        refreshToken, 
+        refreshToken,
+        refreshTokenExpiresAt,
         ...rest
     } = await verifyAuthentication({message, signature})
 
-    res.cookie("refreshToken", refreshToken, {
-        httpOnly: true,
-        secure: NODE_ENV === "production", 
-        sameSite: "lax",
-        maxAge: REFRESH_TOKEN_TTL_MS,
-        path: "/api/auth"
-    })
+    setRefreshTokenCookie(res, refreshToken, refreshTokenExpiresAt)
     sendSuccess(res, rest)
 }
 
@@ -32,13 +41,11 @@ export const refreshController = async(req: Request, res: Response) => {
         throw unauthorized("Refresh token is required")
     }
     const result = await replaceRefreshTokenService(refreshTokenCookie)
-    res.cookie("refreshToken", result.newRefreshToken, {
-        httpOnly: true,
-        secure: NODE_ENV === "production", 
-        sameSite: "lax",
-        maxAge: REFRESH_TOKEN_TTL_MS,
-        path: "/api/auth"
-    })
+    setRefreshTokenCookie(
+        res,
+        result.newRefreshToken,
+        result.refreshTokenExpiresAt,
+    )
     sendSuccess(res, result.newAccessToken)
 }
 

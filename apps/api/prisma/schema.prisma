@@ -17,8 +17,8 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  wallets       Wallet[]
-  refreshTokens RefreshToken[]
+  wallets         Wallet[]
+  refreshSessions RefreshSession[]
 
   @@map("users")
 }
@@ -39,14 +39,29 @@ model Wallet {
 model RefreshToken {
   id        String    @id @default(cuid())
   tokenHash String    @unique
-  userId    String
+  sessionId String
   expiresAt DateTime
   revokedAt DateTime?
   createdAt DateTime  @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session RefreshSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([expiresAt])
+  @@map("refresh_token")
+}
+
+model RefreshSession {
+  id        String    @id @default(cuid())
+  userId    String
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+
+  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokens RefreshToken[]
 
   @@index([userId])
   @@index([expiresAt])
-  @@map("refresh_token")
+  @@map("refresh_session")
 }
