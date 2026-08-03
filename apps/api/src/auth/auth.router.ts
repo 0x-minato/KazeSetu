@@ -12,5 +12,5 @@ export const authRouter: Router = Router()
 
 authRouter.post('/nonce', nonceRateLimiter, nonceController)
 authRouter.post('/verify', verifyRateLimiter, validate(verifyAuthSchema), verifyController)
-authRouter.post('/refresh', refreshRateLimiter, refreshController)
+authRouter.post('/refresh', refreshRateLimiter, validate(verifyAuthSchema), refreshController)
 authRouter.post('/logout', logoutController)

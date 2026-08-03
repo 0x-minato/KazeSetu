@@ -4,6 +4,7 @@ import { errorHandler } from './middlewares/error-handler.js'
 import cookieParser from "cookie-parser"
 import cors, { type CorsOptions } from "cors"
 import { CORS_ORIGIN } from "./config/env"
+import { userRouter } from './users/users.routes.js'
 
 export const app: Express = express()  
 
@@ -26,5 +27,6 @@ app.get('/health', (req, res) => {
 })
 
 app.use('/api/auth', authRouter)
+app.use('/api/users', userRouter)
 
 app.use(errorHandler)

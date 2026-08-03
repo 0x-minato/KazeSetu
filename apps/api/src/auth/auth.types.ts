@@ -21,3 +21,8 @@ export interface RefreshTokenRotationResult {
 export interface AuthenticatedUser {
     userId: string
 }
+
+export interface VerifiedSiwe {
+    address: string,
+    chainId: number
+}

@@ -14,6 +14,7 @@ import { badRequest, unauthorized } from "../utils/api-error"
 import type {
   AuthenticationResult,
   RefreshTokenRotationResult,
+  VerifiedSiwe,
   VerifyAuthenticationInput
 } from "./auth.types"
 import { RefreshTokenRotationConflictError } from "./auth.errors"
@@ -52,33 +53,9 @@ const consumeNonce = (nonce: string): boolean => {
 export const verifyAuthentication = async (
   {message, signature}: VerifyAuthenticationInput
 ): Promise<AuthenticationResult> => {
-    let parsedMessage: SiweMessage
-    try {
-        parsedMessage = new SiweMessage(message)
-    } catch {
-       throw badRequest("Invalid SIWE message")
-    }
+    const verifiedSiwe = await verifySiweMessage({message, signature})
 
-    validateSiweContext(parsedMessage)
-
-    try {
-        const verification = await parsedMessage.verify({
-            signature,
-            domain: SIWE_DOMAIN,
-            time: new Date().toISOString() 
-        })
-        if (!verification.success) {
-          throw unauthorized("Invalid SIWE signature")
-        }
-    } catch {
-        throw unauthorized("Invalid SIWE signature")
-    }
-    if (!consumeNonce(parsedMessage.nonce)) {
-        throw unauthorized("Invalid, expired, or previously used nonce")
-    }
-    const normalizedAddress = parsedMessage.address.toLowerCase()
-
-    const userId = await findOrCreateUserByWalletAddress(normalizedAddress)
+    const userId = await findOrCreateUserByWalletAddress(verifiedSiwe.address)
 
     const accessToken = await generateAccessToken(userId)
     const refreshToken = randomBytes(32).toString("base64url")
@@ -99,8 +76,8 @@ export const verifyAuthentication = async (
 
     return {
         userId,
-        address: normalizedAddress,
-        chainId: parsedMessage.chainId,
+        address: verifiedSiwe.address,
+        chainId: verifiedSiwe.chainId,
         accessToken,
         refreshToken,
         refreshTokenExpiresAt,
@@ -275,4 +252,37 @@ const validateRefreshTokenForRotation = async (
   }
 
   return refreshToken
+}
+
+export const verifySiweMessage = async (
+  {message, signature}: VerifyAuthenticationInput
+): Promise<VerifiedSiwe> => {
+  let parsedMessage: SiweMessage
+    try {
+        parsedMessage = new SiweMessage(message)
+    } catch {
+       throw badRequest("Invalid SIWE message")
+    }
+
+    validateSiweContext(parsedMessage)
+
+    try {
+        const verification = await parsedMessage.verify({
+            signature,
+            domain: SIWE_DOMAIN,
+            time: new Date().toISOString() 
+        })
+        if (!verification.success) {
+          throw unauthorized("Invalid SIWE signature")
+        }
+    } catch {
+        throw unauthorized("Invalid SIWE signature")
+    }
+    if (!consumeNonce(parsedMessage.nonce)) {
+        throw unauthorized("Invalid, expired, or previously used nonce")
+    }
+    return {
+      address: parsedMessage.address.toLowerCase(), 
+      chainId: parsedMessage.chainId
+    }
 }
