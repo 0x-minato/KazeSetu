@@ -51,7 +51,7 @@ export const refreshController = async(req: Request, res: Response) => {
 
 export const logoutController = async(req: Request, res: Response) => {
     const refreshTokenCookie = req.cookies?.refreshToken
-    if(typeof refreshTokenCookie == "string" && refreshTokenCookie) {
+    if(typeof refreshTokenCookie === "string" && refreshTokenCookie) {
         await logoutService(refreshTokenCookie)
     }
     res.clearCookie("refreshToken", {

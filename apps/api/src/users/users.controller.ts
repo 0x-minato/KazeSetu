@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import { unauthorized } from "../utils/api-error";
-import { getCurrentUser, setWallet } from "./users.service";
+import { badRequest, unauthorized } from "../utils/api-error";
+import { getCurrentUser, linkWallet, unlinkWallet } from "./users.service";
 import { sendSuccess } from "../utils/api-response";
 
 export const profileController = async (req: Request, res: Response) => {
@@ -12,6 +12,15 @@ export const profileController = async (req: Request, res: Response) => {
 export const walletController = async (req: Request, res: Response) => {
     if (!req.auth?.userId) throw unauthorized("Unauthorized")
     const { message, signature } = req.body
-    const wallet = await setWallet(req.auth.userId, message, signature)
+    const wallet = await linkWallet(req.auth.userId, message, signature)
     sendSuccess(res, wallet)
+}
+
+export const unlinkWalletController = async (req: Request, res: Response) => {
+    if (!req.auth?.userId) throw unauthorized("Unauthorized")
+    const walletId = req.params.walletId
+    if (typeof walletId !== "string" || !walletId) throw badRequest("wallet id is required")
+    const {message, signature} = req.body
+    await unlinkWallet(req.auth.userId, walletId, message, signature)
+    sendSuccess(res, true)
 }

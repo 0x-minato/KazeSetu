@@ -12,6 +12,22 @@ export const findUserById = (id: string) => {
     })
 }
 
+export const findWalletByAddress = (address: string) => {
+    return prisma.wallet.findUnique({
+        where: {
+            address
+        }
+    })
+}
+
+export const deleteWalletForUser = (address: string) => {
+    return prisma.wallet.delete({
+        where: {
+            address
+        }
+    })
+}
+
 export const createWalletByUserId = (userId: string, address: string) => {
     return prisma.$transaction(async(tx) => {
         const wallet = await tx.wallet.findUnique({
@@ -20,7 +36,7 @@ export const createWalletByUserId = (userId: string, address: string) => {
             }
         })
 
-        if (wallet && wallet.userId == userId) { 
+        if (wallet && wallet.userId === userId) { 
             return { 
                 walletId: wallet.id,
                 address: wallet.address,

@@ -1,6 +1,7 @@
+import { Prisma } from "../../app/generated/prisma/client"
 import { verifySiweMessage } from "../auth/auth.service"
 import { notFound } from "../utils/api-error"
-import { createWalletByUserId, findUserById } from "./users.repository"
+import { createWalletByUserId, deleteWalletForUser, findUserById, findWalletByAddress } from "./users.repository"
 import { UserInterface, Wallet } from "./users.types"
 
 export const getCurrentUser = async (userId: string): Promise<UserInterface> => {
@@ -11,7 +12,6 @@ export const getCurrentUser = async (userId: string): Promise<UserInterface> => 
     const wallets: Wallet[] = user.wallets.map((wallet) => ({
         walletId: wallet.id,
         address: wallet.address,
-        isCreated: false
     }))
 
     return {
@@ -20,17 +20,44 @@ export const getCurrentUser = async (userId: string): Promise<UserInterface> => 
     }
 }
 
-export const setWallet = async (
+export const linkWallet = async (
     userId: string, 
     message: string, 
     signature: string
 ): Promise<Wallet> => {
     const verifiedSiwe = await verifySiweMessage({message, signature})
-    const newWallet = await createWalletByUserId(userId, verifiedSiwe.address) 
+    try {
+        const newWallet = await createWalletByUserId(userId, verifiedSiwe.address) 
+        return {
+            walletId: newWallet.walletId,
+            address: newWallet.address,
+            isCreated: newWallet.isCreated
+        }
+    } catch(error) {
+        if (
+            error instanceof Prisma.PrismaClientKnownRequestError &&
+            error.code === "P2002"
+        ) {
+            const concurrentWallet = await createWalletByUserId(userId, verifiedSiwe.address)
+            return {
+                walletId: concurrentWallet.walletId,
+                address: concurrentWallet.address,
+                isCreated: concurrentWallet.isCreated
+            }
+        }
 
-    return {
-        walletId: newWallet.walletId,
-        address: newWallet.address,
-        isCreated: newWallet.isCreated
+        throw error
     }
+}
+
+export const unlinkWallet = async (
+    userId: string,
+    walletId: string,
+    message: string,
+    signature: string
+) => {
+    const verifiedSiwe = await verifySiweMessage({message, signature})
+    const wallet = await findWalletByAddress(verifiedSiwe.address)
+    if (!wallet || wallet.id !== walletId || wallet.userId !== userId) throw notFound("wallet for user not found") 
+    await deleteWalletForUser(wallet.address)
 }

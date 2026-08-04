@@ -1,7 +1,7 @@
 export interface Wallet {
     walletId: string,
     address: string,
-    isCreated: boolean
+    isCreated?: boolean
 }
 
 export interface UserInterface {

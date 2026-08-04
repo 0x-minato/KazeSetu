@@ -15,6 +15,6 @@ export const errorHandler = (err: Error, _req: Request, res: Response, _next: Ne
     }
     
     body.message = "something went wrong"
-    if (NODE_ENV == 'development') body.details = err.stack
+    if (NODE_ENV === 'development') body.details = err.stack
     res.status(500).json(body)
 }
