@@ -12,6 +12,11 @@ datasource db {
   provider = "postgresql"
 }
 
+enum Role {
+  USER
+  ADMIN
+}
+
 model User {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
@@ -19,6 +24,7 @@ model User {
 
   wallets         Wallet[]
   refreshSessions RefreshSession[]
+  role            Role             @default(USER)
 
   @@map("users")
 }
@@ -64,4 +70,19 @@ model RefreshSession {
   @@index([userId])
   @@index([expiresAt])
   @@map("refresh_session")
+}
+
+model Token {
+  id        String   @id @default(cuid())
+  address   String
+  chainId   Int
+  name      String
+  symbol    String
+  decimals  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isActive  Boolean  @default(true)
+
+  @@unique([chainId, address])
+  @@map("tokens")
 }

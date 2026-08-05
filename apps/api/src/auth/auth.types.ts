@@ -1,3 +1,5 @@
+import { Role } from '../../app/generated/prisma/client'
+
 export interface VerifyAuthenticationInput {
     message: string
     signature: string
@@ -19,10 +21,16 @@ export interface RefreshTokenRotationResult {
 }
 
 export interface AuthenticatedUser {
-    userId: string
+    userId: string,
+    role: Role
 }
 
 export interface VerifiedSiwe {
     address: string,
     chainId: number
+}
+
+export interface UserIdRole {
+    userId: string,
+    role : Role
 }

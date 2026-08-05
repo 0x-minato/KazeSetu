@@ -14,6 +14,7 @@ import { badRequest, unauthorized } from "../utils/api-error"
 import type {
   AuthenticationResult,
   RefreshTokenRotationResult,
+  UserIdRole,
   VerifiedSiwe,
   VerifyAuthenticationInput
 } from "./auth.types"
@@ -55,9 +56,9 @@ export const verifyAuthentication = async (
 ): Promise<AuthenticationResult> => {
     const verifiedSiwe = await verifySiweMessage({message, signature})
 
-    const userId = await findOrCreateUserByWalletAddress(verifiedSiwe.address)
+    const {userId, role } = await findOrCreateUserByWalletAddress(verifiedSiwe.address)
 
-    const accessToken = await generateAccessToken(userId)
+    const accessToken = await generateAccessToken(userId, role)
     const refreshToken = randomBytes(32).toString("base64url")
 
     const refreshTokenHash = createHash("sha256")
@@ -152,7 +153,10 @@ export const replaceRefreshTokenService = async (
   const validatedRefreshToken = await validateRefreshTokenForRotation(refreshTokenDB)
 
   const userId = validatedRefreshToken.session.userId
-  const newAccessToken = await generateAccessToken(userId)
+  const newAccessToken = await generateAccessToken(
+    userId,
+    validatedRefreshToken.session.user.role
+  )
   const newRefreshToken = randomBytes(32).toString("base64url")
   const newRefreshTokenHash = createHash("sha256")
     .update(newRefreshToken)
@@ -200,16 +204,22 @@ export const logoutService = async(refreshTokenCookie: string): Promise<void> =>
 
 const findOrCreateUserByWalletAddress = async (
   address: string,
-): Promise<string> => {
+): Promise<UserIdRole> => {
   const existingWallet = await findWalletByAddress(address)
 
   if (existingWallet) {
-    return existingWallet.userId
+    return { 
+      userId: existingWallet.userId, 
+      role: existingWallet.user.role 
+    }
   }
 
   try {
     const user = await createUserWithWallet(address)
-    return user.id
+    return {
+      userId: user.id,
+      role: user.role
+    }
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -219,7 +229,10 @@ const findOrCreateUserByWalletAddress = async (
         await findWalletByAddress(address)
 
       if (concurrentlyCreatedWallet) {
-        return concurrentlyCreatedWallet.userId
+        return { 
+          userId: concurrentlyCreatedWallet.userId,
+          role: concurrentlyCreatedWallet.user.role
+        }
       }
     }
 

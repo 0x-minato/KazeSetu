@@ -5,6 +5,11 @@ export const findWalletByAddress = (address: string) => {
     return prisma.wallet.findUnique({
         where: {
             address
+        },
+        include: {
+            user: {
+                select: { role: true, id: true}
+            }
         }
     })
 }
@@ -78,7 +83,13 @@ export const findRefreshTokenByHash = (tokenHash: string) => {
             tokenHash
         },
         include: {
-            session: true
+            session: {
+                include: {
+                    user: {
+                        select: { role: true }
+                    }
+                }
+            }
         }
     })
 }

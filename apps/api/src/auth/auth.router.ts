@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { logoutController, nonceController, refreshController, verifyController } from "./auth.controller";
 import { verifyAuthSchema } from "./auth.dto";
-import { validate } from "../middlewares/validate";
+import { validateBody } from "../middlewares/validate";
 import {
   nonceRateLimiter,
   refreshRateLimiter,
@@ -11,6 +11,6 @@ import {
 export const authRouter: Router = Router()
 
 authRouter.post('/nonce', nonceRateLimiter, nonceController)
-authRouter.post('/verify', verifyRateLimiter, validate(verifyAuthSchema), verifyController)
-authRouter.post('/refresh', refreshRateLimiter, validate(verifyAuthSchema), refreshController)
+authRouter.post('/verify', verifyRateLimiter, validateBody(verifyAuthSchema), verifyController)
+authRouter.post('/refresh', refreshRateLimiter, validateBody(verifyAuthSchema), refreshController)
 authRouter.post('/logout', logoutController)

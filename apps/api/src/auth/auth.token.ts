@@ -4,14 +4,16 @@ import {
   JWT_ACCESS_SECRET,
 } from "../config/env"
 import { ApiError, unauthorized } from "../utils/api-error"
+import { Role } from "../../app/generated/prisma/enums"
+import { UserIdRole } from "./auth.types"
 
 const algorithm = "HS256"
 const accessTokenSecret = new TextEncoder().encode(JWT_ACCESS_SECRET)
 
-export const generateAccessToken = (userId: string): Promise<string> => {
+export const generateAccessToken = (userId: string, role: Role): Promise<string> => {
   const now = Math.floor(Date.now() / 1000)
 
-  return new SignJWT()
+  return new SignJWT({ role })
     .setProtectedHeader({ alg: algorithm, typ: "JWT" })
     .setSubject(userId)
     .setIssuedAt(now)
@@ -19,17 +21,26 @@ export const generateAccessToken = (userId: string): Promise<string> => {
     .sign(accessTokenSecret)
 }
 
-export const verifyAccessToken = async (token: string): Promise<string> => {
+export const verifyAccessToken = async (token: string): Promise<UserIdRole> => {
   try {
     const { payload } = await jwtVerify(token, accessTokenSecret, {
       algorithms: [algorithm],
     })
 
-    if (typeof payload.sub !== "string" || !payload.sub) {
+    const role = payload.role
+    if (
+      typeof payload.sub !== "string" || 
+      !payload.sub || 
+      (role !== Role.ADMIN && 
+      role !== Role.USER)
+    ) {
       throw unauthorized("Invalid access token")
-    }
+    } 
 
-    return payload.sub
+    return { 
+      userId: payload.sub, 
+      role
+    }
   } catch (error) {
     if (error instanceof ApiError) {
       throw error
