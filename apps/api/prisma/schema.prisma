@@ -83,6 +83,19 @@ model Token {
   updatedAt DateTime @updatedAt
   isActive  Boolean  @default(true)
 
+  price TokenPrice?
+
   @@unique([chainId, address])
   @@map("tokens")
+}
+
+model TokenPrice {
+  id        String   @id @default(cuid())
+  tokenId   String   @unique
+  priceUsd  Decimal  @db.Decimal(36, 18)
+  updatedAt DateTime @updatedAt
+
+  token Token @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+
+  @@map("token_price")
 }
