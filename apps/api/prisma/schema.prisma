@@ -36,6 +36,8 @@ model Wallet {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  balances WalletBalance[]
+
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
@@ -83,7 +85,8 @@ model Token {
   updatedAt DateTime @updatedAt
   isActive  Boolean  @default(true)
 
-  price TokenPrice?
+  price    TokenPrice?
+  balances WalletBalance[]
 
   @@unique([chainId, address])
   @@map("tokens")
@@ -98,4 +101,20 @@ model TokenPrice {
   token Token @relation(fields: [tokenId], references: [id], onDelete: Cascade)
 
   @@map("token_price")
+}
+
+model WalletBalance {
+  id        String   @id @default(cuid())
+  walletId  String
+  tokenId   String
+  amount    Decimal  @db.Decimal(36, 18)
+  updatedAt DateTime @updatedAt
+
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  token  Token  @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+
+  @@unique([walletId, tokenId])
+  @@index([walletId])
+  @@index([tokenId])
+  @@map("wallet_balances")
 }

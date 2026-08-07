@@ -7,6 +7,7 @@ import { CORS_ORIGIN } from "./config/env"
 import { userRouter } from './users/users.routes.js'
 import { tokenRouter } from './tokens/tokens.router.js'
 import { priceRouter } from './prices/prices.router.js'
+import { portfolioRouter } from './portfolio/portfolio.router.js'
 
 export const app: Express = express()  
 
@@ -32,5 +33,6 @@ app.use('/api/auth', authRouter)
 app.use('/api/users', userRouter)
 app.use('/api/tokens', tokenRouter)
 app.use('/api/prices', priceRouter)
+app.use('/api/portfolio', portfolioRouter)
 
 app.use(errorHandler)
