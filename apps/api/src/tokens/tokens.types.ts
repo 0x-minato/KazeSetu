@@ -6,3 +6,7 @@ export interface Token {
     decimals: number,
     isActive: boolean
 }
+
+export interface ActiveToken extends Token {
+    id: string
+}

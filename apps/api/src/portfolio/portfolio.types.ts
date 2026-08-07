@@ -1,5 +1,3 @@
-import { Decimal } from "@prisma/client/runtime/client"
-
 export interface Position {
     address: string
     chainId: number

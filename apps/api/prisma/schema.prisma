@@ -85,8 +85,10 @@ model Token {
   updatedAt DateTime @updatedAt
   isActive  Boolean  @default(true)
 
-  price    TokenPrice?
-  balances WalletBalance[]
+  price         TokenPrice?
+  balances      WalletBalance[]
+  poolsAsToken0 Pool[]          @relation("PoolToken0")
+  poolsAsToken1 Pool[]          @relation("PoolToken1")
 
   @@unique([chainId, address])
   @@map("tokens")
@@ -117,4 +119,26 @@ model WalletBalance {
   @@index([walletId])
   @@index([tokenId])
   @@map("wallet_balances")
+}
+
+model Pool {
+  id        String   @id @default(cuid())
+  address   String
+  chainId   Int
+  token0Id  String
+  token1Id  String
+  feeBps    Int
+  reserve0  Decimal  @db.Decimal(36, 18)
+  reserve1  Decimal  @db.Decimal(36, 18)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  token0 Token @relation("PoolToken0", fields: [token0Id], references: [id], onDelete: Cascade)
+  token1 Token @relation("PoolToken1", fields: [token1Id], references: [id], onDelete: Cascade)
+
+  @@unique([chainId, address])
+  @@index([token0Id])
+  @@index([token1Id])
+  @@map("pools")
 }
