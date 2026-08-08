@@ -23,6 +23,11 @@ enum SwapStatus {
   FAILED
 }
 
+enum LiquidityEventType {
+  ADD
+  REMOVE
+}
+
 model User {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
@@ -30,8 +35,10 @@ model User {
 
   wallets         Wallet[]
   refreshSessions RefreshSession[]
-  role            Role             @default(USER)
+  role            Role                @default(USER)
   swaps           Swap[]
+  liquidity       LiquidityPosition[]
+  liquidityEvent  LiquidityEvent[]
 
   @@map("users")
 }
@@ -146,7 +153,9 @@ model Pool {
   token0 Token @relation("PoolToken0", fields: [token0Id], references: [id], onDelete: Cascade)
   token1 Token @relation("PoolToken1", fields: [token1Id], references: [id], onDelete: Cascade)
 
-  swaps Swap[]
+  swaps          Swap[]
+  liquidity      LiquidityPosition[]
+  liquidityEvent LiquidityEvent[]
 
   @@unique([chainId, address])
   @@index([token0Id])
@@ -176,4 +185,42 @@ model Swap {
   @@unique([chainId, txHash])
   @@index([userId])
   @@map("swaps")
+}
+
+model LiquidityPosition {
+  id            String   @id @default(cuid())
+  userId        String
+  poolId        String
+  chainId       Int
+  lpTokenAmount Decimal  @db.Decimal(36, 18)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pool Pool @relation(fields: [poolId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, poolId])
+  @@index([userId])
+  @@map("liquidity_positions")
+}
+
+model LiquidityEvent {
+  id        String             @id @default(cuid())
+  userId    String
+  poolId    String
+  chainId   Int
+  type      LiquidityEventType
+  amount0   Decimal            @db.Decimal(36, 18)
+  amount1   Decimal            @db.Decimal(36, 18)
+  lpAmount  Decimal            @db.Decimal(36, 18)
+  txHash    String?
+  status    SwapStatus         @default(PENDING)
+  createdAt DateTime           @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pool Pool @relation(fields: [poolId], references: [id], onDelete: Cascade)
+
+  @@unique([chainId, txHash])
+  @@index([userId])
+  @@map("liquidity_events")
 }
