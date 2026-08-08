@@ -21,7 +21,7 @@ export const getActiveTokenByAddressAndChainId = async (
         ...toToken(token),
     }
 }
-
+  
 export const getToken = async (address: string, chainId: number): Promise<Token> => {
     const { id: _id, ...token } = await getActiveTokenByAddressAndChainId(address, chainId)
     return token

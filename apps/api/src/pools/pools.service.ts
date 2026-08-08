@@ -4,10 +4,7 @@ import { conflict, notFound } from "../utils/api-error"
 import { PoolBodyDTO } from "./pools.dto"
 import { getAllPools, getPoolByAddressAndChainId, setNewPool } from "./pools.repository"
 import { Pool } from "./pools.types"
-
-type PoolWithTokens = NonNullable<
-  Awaited<ReturnType<typeof getPoolByAddressAndChainId>>
->
+import { toPool } from "./pools.mapper"
 
 export const getPoolsService = async (): Promise<Pool[]> => {
     const pools = await getAllPools()
@@ -50,13 +47,3 @@ export const setPoolService = async (body: PoolBodyDTO): Promise<Pool> => {
 
     return toPool(created)
 }
-
-const toPool = (pool: PoolWithTokens): Pool => ({
-    address: pool.address,
-    chainId: pool.chainId,
-    feeBps: pool.feeBps,
-    reserve0: pool.reserve0.toString(),
-    reserve1: pool.reserve1.toString(),
-    token0: toToken(pool.token0),
-    token1: toToken(pool.token1),
-})

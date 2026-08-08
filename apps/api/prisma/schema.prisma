@@ -17,6 +17,12 @@ enum Role {
   ADMIN
 }
 
+enum SwapStatus {
+  SUCCESS
+  PENDING
+  FAILED
+}
+
 model User {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
@@ -25,6 +31,7 @@ model User {
   wallets         Wallet[]
   refreshSessions RefreshSession[]
   role            Role             @default(USER)
+  swaps           Swap[]
 
   @@map("users")
 }
@@ -85,10 +92,12 @@ model Token {
   updatedAt DateTime @updatedAt
   isActive  Boolean  @default(true)
 
-  price         TokenPrice?
-  balances      WalletBalance[]
-  poolsAsToken0 Pool[]          @relation("PoolToken0")
-  poolsAsToken1 Pool[]          @relation("PoolToken1")
+  price           TokenPrice?
+  balances        WalletBalance[]
+  poolsAsToken0   Pool[]          @relation("PoolToken0")
+  poolsAsToken1   Pool[]          @relation("PoolToken1")
+  swapsAsTokenIn  Swap[]          @relation("SwapTokenIn")
+  swapsAsTokenOut Swap[]          @relation("SwapTokenOut")
 
   @@unique([chainId, address])
   @@map("tokens")
@@ -132,13 +141,39 @@ model Pool {
   reserve1  Decimal  @db.Decimal(36, 18)
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  updatedAt DateTime @updatedAt
 
   token0 Token @relation("PoolToken0", fields: [token0Id], references: [id], onDelete: Cascade)
   token1 Token @relation("PoolToken1", fields: [token1Id], references: [id], onDelete: Cascade)
+
+  swaps Swap[]
 
   @@unique([chainId, address])
   @@index([token0Id])
   @@index([token1Id])
   @@map("pools")
+}
+
+model Swap {
+  id         String     @id @default(cuid())
+  userId     String
+  chainId    Int
+  poolId     String
+  tokenInId  String
+  tokenOutId String
+  amountIn   Decimal    @db.Decimal(36, 18)
+  amountOut  Decimal    @db.Decimal(36, 18)
+  txHash     String?
+  status     SwapStatus @default(PENDING)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  user     User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pool     Pool  @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  tokenIn  Token @relation("SwapTokenIn", fields: [tokenInId], references: [id], onDelete: Cascade)
+  tokenOut Token @relation("SwapTokenOut", fields: [tokenOutId], references: [id], onDelete: Cascade)
+
+  @@unique([chainId, txHash])
+  @@index([userId])
+  @@map("swaps")
 }
