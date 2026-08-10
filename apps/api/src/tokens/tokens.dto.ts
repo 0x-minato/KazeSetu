@@ -1,26 +1,11 @@
 import z from "zod"
+import { addressParamsSchema, chainIdSchema, ethAddressSchema } from "../dto/common"
 
-export const tokenAddressParamsSchema = z.object({
-  address: z
-    .string()
-    .regex(/^0x[a-fA-F0-9]{40}$/, "Invalid address format")
-    .transform((value) => value.toLowerCase()),
-})
-
-export const chainIdQuerySchema = z.object({
-  chainId: z
-    .coerce
-    .number()
-    .int()
-    .positive()
-})
+export const tokenAddressParamsSchema = addressParamsSchema
 
 export const tokenBodySchema = z.object({
-  address: z
-    .string()
-    .regex(/^0x[a-fA-F0-9]{40}$/, "Invalid address format")
-    .transform((value) => value.toLowerCase()),
-  chainId: z.coerce.number().int().positive(),
+  address: ethAddressSchema,
+  chainId: chainIdSchema,
   symbol: z
     .string()
     .trim()
@@ -33,5 +18,5 @@ export const tokenBodySchema = z.object({
 })
 
 export type TokenAddressParamsDTO = z.infer<typeof tokenAddressParamsSchema>
-export type chainIDQueryDTO = z.infer<typeof chainIdQuerySchema>
 export type TokenBodyDTO = z.infer<typeof tokenBodySchema>
+export { chainIdQuerySchema, type ChainIdQueryDTO } from "../dto/common"

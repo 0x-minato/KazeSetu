@@ -2,7 +2,8 @@ import { Router } from 'express'
 import { getPriceForSupportedToken, getPricesForSupportedTokens, updatePriceForSupportedToken } from './prices.controller'
 import { authenticateAccessToken, requireAdmin } from '../middlewares/authenticate'
 import { validateBody, validateParams, validateQuery } from '../middlewares/validate'
-import { chainIdQuerySchema, tokenAddressParamsSchema } from '../tokens/tokens.dto'
+import { chainIdQuerySchema } from '../dto/common'
+import { tokenAddressParamsSchema } from '../tokens/tokens.dto'
 import { verifyPriceSchema } from './prices.dto'
 
 export const priceRouter: Router = Router()

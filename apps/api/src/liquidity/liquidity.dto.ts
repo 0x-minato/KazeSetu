@@ -1,15 +1,7 @@
 import z from "zod"
+import { txHashParamsSchema } from "../dto/common"
 
-export const liquidityTxHashParamsSchema = z.object({
-  txHash: z
-    .string()
-    .regex(/^0x[a-fA-F0-9]{64}$/, "Invalid txHash format")
-    .transform((value) => value.toLowerCase()),
-})
-
-export const chainIdQuerySchema = z.object({
-  chainId: z.coerce.number().int().positive(),
-})
+export const liquidityTxHashParamsSchema = txHashParamsSchema
 
 export type LiquidityTxHashParamsDTO = z.infer<typeof liquidityTxHashParamsSchema>
-export type ChainIdQueryDTO = z.infer<typeof chainIdQuerySchema>
+export { chainIdQuerySchema, type ChainIdQueryDTO } from "../dto/common"

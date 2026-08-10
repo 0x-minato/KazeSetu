@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { addToken, getToken, getTokens } from "./tokens.service";
 import { sendSuccess } from "../utils/api-response";
-import { chainIDQueryDTO, TokenAddressParamsDTO, TokenBodyDTO } from "./tokens.dto";
+import { ChainIdQueryDTO, TokenAddressParamsDTO, TokenBodyDTO } from "./tokens.dto";
 
 export const getSupportedTokens = async (_req: Request, res: Response) => {
     const tokens = await getTokens()
@@ -10,7 +10,7 @@ export const getSupportedTokens = async (_req: Request, res: Response) => {
 
 export const getSupportedToken = async (req: Request, res: Response) => {
     const { address } = req.params as TokenAddressParamsDTO
-    const { chainId } = req.query as unknown as chainIDQueryDTO
+    const { chainId } = req.query as unknown as ChainIdQueryDTO
     const token = await getToken(address, chainId)
     sendSuccess(res, token)
 }

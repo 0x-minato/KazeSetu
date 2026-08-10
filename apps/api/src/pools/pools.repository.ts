@@ -1,20 +1,22 @@
 import { prisma } from "../config/database"
 
+const poolTokensInclude = {
+    token0: true,
+    token1: true,
+} as const
+
 export const getAllPools = () => {
     return prisma.pool.findMany({
         where: {
             isActive: true,
             token0: {
-                isActive: true
+                isActive: true,
             },
             token1: {
-                isActive: true
-            }
+                isActive: true,
+            },
         },
-        include: {
-            token0: true,
-            token1: true
-        }
+        include: poolTokensInclude,
     })
 }
 
@@ -23,13 +25,10 @@ export const getPoolByAddressAndChainId = (address: string, chainId: number) => 
         where: {
             chainId_address: {
                 chainId,
-                address
+                address,
             },
         },
-        include: {
-            token0: true,
-            token1: true
-        }
+        include: poolTokensInclude,
     })
 }
 
@@ -54,9 +53,6 @@ export const setNewPool = (input: {
             reserve1: input.reserve1,
             isActive: input.isActive,
         },
-        include: {
-            token0: true,
-            token1: true,
-        },
+        include: poolTokensInclude,
     })
 }

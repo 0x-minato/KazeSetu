@@ -1,62 +1,50 @@
 import { prisma } from "../config/database"
 
+const poolWithTokensInclude = {
+    pool: {
+        include: {
+            token0: true,
+            token1: true,
+        },
+    },
+} as const
+
 export const getLiquidityByUserId = (userId: string) => {
     return prisma.liquidityPosition.findMany({
         where: {
             userId,
-            lpTokenAmount: { gt: 0 }
+            lpTokenAmount: { gt: 0 },
         },
-        include: {
-            pool: {
-                include: {
-                    token0: true,
-                    token1: true
-                } 
-            }
-        },
+        include: poolWithTokensInclude,
         orderBy: {
-            updatedAt: "desc"
-        }
+            updatedAt: "desc",
+        },
     })
-} 
+}
 
 export const getLiquidityEventByUserId = (userId: string) => {
     return prisma.liquidityEvent.findMany({
         where: {
             userId,
         },
-        include: {
-            pool: {
-                include: {
-                    token0: true,
-                    token1: true
-                } 
-            }
-        },
+        include: poolWithTokensInclude,
         orderBy: {
-            createdAt: "desc"
-        }
+            createdAt: "desc",
+        },
     })
 }
 
 export const getLiquidityEventByUserIdChainIdHash = (
     userId: string,
     chainId: number,
-    txHash: string
+    txHash: string,
 ) => {
     return prisma.liquidityEvent.findFirst({
         where: {
             userId,
             chainId,
-            txHash
+            txHash,
         },
-        include: {
-            pool: {
-                include: {
-                    token0: true,
-                    token1: true
-                }
-            }
-        }
+        include: poolWithTokensInclude,
     })
 }

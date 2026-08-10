@@ -28,6 +28,12 @@ enum LiquidityEventType {
   REMOVE
 }
 
+enum StakingEventType {
+  STAKE
+  UNSTAKE
+  CLAIM
+}
+
 model User {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
@@ -39,6 +45,8 @@ model User {
   swaps           Swap[]
   liquidity       LiquidityPosition[]
   liquidityEvent  LiquidityEvent[]
+  stakingPosition StakingPosition[]
+  stakingEvent    StakingEvent[]
 
   @@map("users")
 }
@@ -101,6 +109,7 @@ model Token {
 
   price           TokenPrice?
   balances        WalletBalance[]
+  stakingFarms    StakingFarm[]
   poolsAsToken0   Pool[]          @relation("PoolToken0")
   poolsAsToken1   Pool[]          @relation("PoolToken1")
   swapsAsTokenIn  Swap[]          @relation("SwapTokenIn")
@@ -156,6 +165,7 @@ model Pool {
   swaps          Swap[]
   liquidity      LiquidityPosition[]
   liquidityEvent LiquidityEvent[]
+  stakingFarms   StakingFarm[]
 
   @@unique([chainId, address])
   @@index([token0Id])
@@ -223,4 +233,62 @@ model LiquidityEvent {
   @@unique([chainId, txHash])
   @@index([userId])
   @@map("liquidity_events")
+}
+
+model StakingFarm {
+  id            String   @id @default(cuid())
+  address       String
+  chainId       Int
+  poolId        String
+  rewardTokenId String
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  pool        Pool  @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  rewardToken Token @relation(fields: [rewardTokenId], references: [id], onDelete: Cascade)
+
+  positions StakingPosition[]
+  events    StakingEvent[]
+
+  @@unique([chainId, address])
+  @@index([poolId])
+  @@index([rewardTokenId])
+  @@map("staking_farms")
+}
+
+model StakingPosition {
+  id           String   @id @default(cuid())
+  userId       String
+  farmId       String
+  chainId      Int
+  stakedAmount Decimal  @db.Decimal(36, 18)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  farm StakingFarm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, farmId])
+  @@index([userId])
+  @@map("staking_positions")
+}
+
+model StakingEvent {
+  id        String           @id @default(cuid())
+  userId    String
+  farmId    String
+  chainId   Int
+  type      StakingEventType
+  amount    Decimal          @db.Decimal(36, 18)
+  txHash    String?
+  status    SwapStatus       @default(PENDING)
+  createdAt DateTime         @default(now())
+
+  user User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  farm StakingFarm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  @@unique([chainId, txHash])
+  @@index([userId])
+  @@map("staking_events")
 }

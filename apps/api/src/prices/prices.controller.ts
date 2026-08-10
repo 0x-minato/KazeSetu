@@ -1,7 +1,8 @@
 import { Request, Response } from "express"
 import { sendSuccess } from "../utils/api-response"
 import { getPrice, getPrices, updatePrice } from "./prices.service"
-import { chainIDQueryDTO, TokenAddressParamsDTO } from "../tokens/tokens.dto"
+import { ChainIdQueryDTO } from "../dto/common"
+import { TokenAddressParamsDTO } from "../tokens/tokens.dto"
 import { VerifyPriceDTO } from "./prices.dto"
 
 export const getPricesForSupportedTokens = async (_req: Request, res: Response) => {
@@ -11,14 +12,14 @@ export const getPricesForSupportedTokens = async (_req: Request, res: Response) 
 
 export const getPriceForSupportedToken = async (req: Request, res: Response) => {
     const { address } = req.params as TokenAddressParamsDTO
-    const { chainId } = req.query as unknown as chainIDQueryDTO
+    const { chainId } = req.query as unknown as ChainIdQueryDTO
     const price = await getPrice(address, chainId)
     sendSuccess(res, price)
 }
 
 export const updatePriceForSupportedToken = async (req: Request, res: Response) => {
     const { address } = req.params as TokenAddressParamsDTO
-    const { chainId } = req.query as unknown as chainIDQueryDTO
+    const { chainId } = req.query as unknown as ChainIdQueryDTO
     const { priceUsd }  = req.body as VerifyPriceDTO
     const priceUpdated = await updatePrice(address, chainId, priceUsd)
     sendSuccess(res, priceUpdated)

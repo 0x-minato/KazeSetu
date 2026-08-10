@@ -1,14 +1,25 @@
 import { prisma } from "../config/database"
 
+const swapInclude = {
+    pool: {
+        include: {
+            token0: true,
+            token1: true,
+        },
+    },
+    tokenIn: true,
+    tokenOut: true,
+} as const
+
 export const getSwapsByUserId = (userId: string) => {
     return prisma.swap.findMany({
         where: {
-            userId
+            userId,
         },
         include: swapInclude,
         orderBy: {
-            createdAt: "desc"
-        }
+            createdAt: "desc",
+        },
     })
 }
 
@@ -17,19 +28,8 @@ export const getSwapByUserIdHashChainId = (userId: string, chainId: number, txHa
         where: {
             chainId,
             txHash,
-            userId
-        }, 
-        include: swapInclude
+            userId,
+        },
+        include: swapInclude,
     })
 }
-
-const swapInclude = {
-    pool: {
-      include: {
-        token0: true,
-        token1: true,
-      },
-    },
-    tokenIn: true,
-    tokenOut: true,
-  } as const

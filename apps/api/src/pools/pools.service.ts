@@ -11,12 +11,20 @@ export const getPoolsService = async (): Promise<Pool[]> => {
     return pools.map(toPool)
 }
 
-export const getPoolService = async (address: string, chainId: number): Promise<Pool> => {
+export const getActivePoolByAddressAndChainId = async (address: string, chainId: number) => {
     const pool = await getPoolByAddressAndChainId(address, chainId)
     if (
         !pool || !pool.isActive || !pool.token0.isActive || !pool.token1.isActive
     ) throw notFound("Pool not found")
-    return toPool(pool)
+    return {
+        id: pool.id,
+        ...toPool(pool),
+    }
+}
+
+export const getPoolService = async (address: string, chainId: number): Promise<Pool> => {
+    const { id: _id, ...pool } = await getActivePoolByAddressAndChainId(address, chainId)
+    return pool
 }
 
 export const setPoolService = async (body: PoolBodyDTO): Promise<Pool> => {
