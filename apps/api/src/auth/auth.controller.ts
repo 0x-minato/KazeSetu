@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { generateNonce, verifyAuthentication, replaceRefreshTokenService, logoutService } from "./auth.service";
 import { sendSuccess } from "../utils/api-response";
 import { NODE_ENV } from "../config/env";
+import { API_ROUTES } from "../config/routes";
 import { unauthorized } from '../utils/api-error.ts'
 
 const setRefreshTokenCookie = (
@@ -14,7 +15,7 @@ const setRefreshTokenCookie = (
         secure: NODE_ENV === "production",
         sameSite: "lax",
         maxAge: Math.max(0, expiresAt.getTime() - Date.now()),
-        path: "/api/auth",
+        path: API_ROUTES.auth,
     })
 }
 
@@ -58,7 +59,7 @@ export const logoutController = async(req: Request, res: Response) => {
         httpOnly: true,
         secure: NODE_ENV === "production",
         sameSite: "lax",
-        path: "/api/auth"
+        path: API_ROUTES.auth,
     })
     sendSuccess(res, true)
 }

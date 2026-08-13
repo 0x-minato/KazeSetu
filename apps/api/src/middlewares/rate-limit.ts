@@ -6,10 +6,12 @@ import {
   AUTH_REFRESH_RATE_LIMIT_WINDOW_MS,
   AUTH_VERIFY_RATE_LIMIT_MAX,
   AUTH_VERIFY_RATE_LIMIT_WINDOW_MS,
+  GLOBAL_RATE_LIMIT_MAX,
+  GLOBAL_RATE_LIMIT_WINDOW_MS,
 } from "../config/env"
 import { tooManyRequests } from "../utils/api-error"
 
-const createAuthRateLimiter = (
+const createRateLimiter = (
   windowMs: number,
   max: number,
   message: string,
@@ -24,20 +26,26 @@ const createAuthRateLimiter = (
     },
   })
 
-export const nonceRateLimiter = createAuthRateLimiter(
+export const nonceRateLimiter = createRateLimiter(
   AUTH_NONCE_RATE_LIMIT_WINDOW_MS,
   AUTH_NONCE_RATE_LIMIT_MAX,
   "Too many nonce requests",
 )
 
-export const verifyRateLimiter = createAuthRateLimiter(
+export const verifyRateLimiter = createRateLimiter(
   AUTH_VERIFY_RATE_LIMIT_WINDOW_MS,
   AUTH_VERIFY_RATE_LIMIT_MAX,
   "Too many authentication attempts",
 )
 
-export const refreshRateLimiter = createAuthRateLimiter(
+export const refreshRateLimiter = createRateLimiter(
   AUTH_REFRESH_RATE_LIMIT_WINDOW_MS,
   AUTH_REFRESH_RATE_LIMIT_MAX,
   "Too many refresh requests",
+)
+
+export const globalRateLimiter = createRateLimiter(
+  GLOBAL_RATE_LIMIT_WINDOW_MS,
+  GLOBAL_RATE_LIMIT_MAX,
+  "Too many refresh requests"  
 )
