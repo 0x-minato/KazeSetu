@@ -1,6 +1,6 @@
 import { toPool } from "../pools/pools.mapper"
 import { notFound } from "../utils/api-error"
-import { getLiquidityByUserId, getLiquidityEventByUserId, getLiquidityEventByUserIdChainIdHash } from "./liquidity.repository"
+import { getAllLiquidityEventsSuccess, getLiquidityByUserId, getLiquidityEventByUserId, getLiquidityEventByUserIdChainIdHash } from "./liquidity.repository"
 import { Liquidity, LiquidityEvent } from "./liquidity.types"
 
 type LiquidityFromRepo = Awaited<ReturnType<typeof getLiquidityByUserId>>[number]
@@ -15,6 +15,11 @@ export const getLiquidityEventsService = async (userId: string): Promise<Liquidi
     const liquidity = await getLiquidityEventByUserId(userId) 
     return liquidity.map(toLiquidityEvent)
 }
+
+export const getLiquidityEvents24HrService = async () => {
+    const liquidities = await getAllLiquidityEventsSuccess()
+    return liquidities
+} 
 
 export const getLiquidityEventService = async (
     userId: string,

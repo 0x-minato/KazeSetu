@@ -1,3 +1,4 @@
+import { SwapStatus } from "../../app/generated/prisma/enums"
 import { prisma } from "../config/database"
 
 const swapInclude = {
@@ -20,6 +21,25 @@ export const getSwapsByUserId = (userId: string) => {
         orderBy: {
             createdAt: "desc",
         },
+    })
+}
+
+export const getAllSwaps24Hr = () => {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000)
+    return prisma.swap.findMany({
+        where: {
+            status: SwapStatus.SUCCESS,
+            createdAt: { gte: since}
+        }, 
+        select: {
+            amountIn: true,
+            tokenIn: {
+                select: {
+                    address: true,
+                    price: { select: { priceUsd: true }}
+                }
+            }
+        }
     })
 }
 

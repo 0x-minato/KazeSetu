@@ -1,3 +1,4 @@
+import { SwapStatus } from "../../app/generated/prisma/enums"
 import { prisma } from "../config/database"
 
 const poolWithTokensInclude = {
@@ -31,6 +32,23 @@ export const getLiquidityEventByUserId = (userId: string) => {
         orderBy: {
             createdAt: "desc",
         },
+    })
+}
+
+export const getAllLiquidityEventsSuccess = () => {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000)
+    return prisma.liquidityEvent.findMany({
+        where: {
+            status: SwapStatus.SUCCESS,
+            createdAt: { gte: since}
+        },
+        select: {
+            amount0: true, amount1: true,
+            pool: { select: { 
+                token0: {select: { price: { select: { priceUsd: true}}}}, 
+                token1: {select: { price: { select: { priceUsd: true}}}}, 
+            }}
+        }
     })
 }
 

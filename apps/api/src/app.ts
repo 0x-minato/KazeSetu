@@ -12,6 +12,7 @@ import { poolRouter } from './pools/pools.router.js'
 import { swapRouter } from './swaps/swaps.router.js'
 import { liquidityRouter } from './liquidity/liquidity.router.js'
 import { stakingRouter } from './staking/staking.router.js'
+import { analyticsRouter } from './analytics/analytics.router.js'
 
 export const app: Express = express()  
 
@@ -42,5 +43,6 @@ app.use('/api/pools', poolRouter)
 app.use('/api/swaps', swapRouter)
 app.use('/api/liquidity', liquidityRouter)
 app.use('/api/staking', stakingRouter)
+app.use('/api/analytics', analyticsRouter)
 
 app.use(errorHandler)

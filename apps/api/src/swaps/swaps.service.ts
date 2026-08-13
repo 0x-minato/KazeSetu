@@ -1,4 +1,4 @@
-import { getSwapByUserIdHashChainId, getSwapsByUserId } from "./swaps.repository"
+import { getAllSwaps24Hr, getSwapByUserIdHashChainId, getSwapsByUserId } from "./swaps.repository"
 import { SwapData } from "./swaps.types"
 import { toToken } from "../tokens/tokens.mapper"
 import { toPool } from "../pools/pools.mapper"
@@ -9,6 +9,11 @@ type SwapFromRepo = Awaited<ReturnType<typeof getSwapsByUserId>>[number]
 export const getSwapsService = async (userId: string): Promise<SwapData[]> => {
    const swaps = await getSwapsByUserId(userId)
    return swaps.map(toSwap)
+}
+
+export const getAllSwapsService = async () => {
+    const swaps = await getAllSwaps24Hr()
+    return swaps
 }
 
 export const getSwapService = async (
