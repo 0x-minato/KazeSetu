@@ -5,18 +5,31 @@ const poolTokensInclude = {
     token1: true,
 } as const
 
+const activePool = {
+    isActive: true,
+    token0: {
+        isActive: true,
+    },
+    token1: {
+        isActive: true,
+    },
+}
+
 export const getAllPools = () => {
     return prisma.pool.findMany({
-        where: {
-            isActive: true,
-            token0: {
-                isActive: true,
-            },
-            token1: {
-                isActive: true,
-            },
-        },
+        where: activePool,
         include: poolTokensInclude,
+    })
+}
+
+export const getAllPoolsForTvl = () => {
+    return prisma.pool.findMany({
+        where: activePool,
+        select: {
+            reserve0: true, reserve1: true,
+            token0: { select: { price: { select: { priceUsd: true}}}},
+            token1: { select: { price: { select: { priceUsd: true}}}},
+        }
     })
 }
 

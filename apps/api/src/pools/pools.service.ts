@@ -2,7 +2,7 @@ import { getActiveTokenByAddressAndChainId } from "../tokens/tokens.service"
 import { toToken } from "../tokens/tokens.mapper"
 import { conflict, notFound } from "../utils/api-error"
 import { PoolBodyDTO } from "./pools.dto"
-import { getAllPools, getPoolByAddressAndChainId, setNewPool } from "./pools.repository"
+import { getAllPools, getAllPoolsForTvl, getPoolByAddressAndChainId, setNewPool } from "./pools.repository"
 import { Pool } from "./pools.types"
 import { toPool } from "./pools.mapper"
 
@@ -10,6 +10,11 @@ export const getPoolsService = async (): Promise<Pool[]> => {
     const pools = await getAllPools()
     return pools.map(toPool)
 }
+
+export const getPoolsTvlService = async () => {
+    const pools = await getAllPoolsForTvl()
+    return pools
+} 
 
 export const getActivePoolByAddressAndChainId = async (address: string, chainId: number) => {
     const pool = await getPoolByAddressAndChainId(address, chainId)
