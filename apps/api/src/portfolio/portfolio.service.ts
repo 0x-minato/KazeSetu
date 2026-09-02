@@ -2,6 +2,9 @@ import { Decimal } from "@prisma/client/runtime/client"
 import { findBalancesByUserId } from "./portfolio.repository"
 import { Portfolio} from "./portfolio.types"
 
+/*
+    TODO: SERVICE MAKES NO SENSE CHANGE IT 
+*/
 export const getUserPortfolio = async (userId: string): Promise<Portfolio> => {
     const balances = await findBalancesByUserId(userId)
     let totalValueUsd = new Decimal(0)

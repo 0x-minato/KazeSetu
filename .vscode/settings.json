@@ -1,7 +1,25 @@
 {
     "cSpell.words": [
         "cuid",
+        "IERC",
+        "Kaze",
+        "Nonfungible",
         "notif",
-        "Siwe"
-    ]
+        "Reentrancy",
+        "Siwe",
+        "UUPS"
+    ],
+    "wake.compiler.solc.remappings": [
+        "@openzeppelin/contracts/=contracts/lib/openzeppelin-contracts/contracts/",
+        "@openzeppelin/contracts-upgradeable/=contracts/lib/openzeppelin-contracts-upgradeable/contracts/",
+        "forge-std/=contracts/lib/forge-std/src/",
+        "openzeppelin-contracts/=contracts/lib/openzeppelin-contracts/"
+    ],
+    "solidity.remappings": [
+        "@openzeppelin/contracts/=contracts/lib/openzeppelin-contracts/contracts/",
+        "@openzeppelin/contracts-upgradeable/=contracts/lib/openzeppelin-contracts-upgradeable/contracts/",
+        "forge-std/=contracts/lib/forge-std/src/",
+        "openzeppelin-contracts/=contracts/lib/openzeppelin-contracts/"
+    ],
+    "solidity.packageDefaultDependenciesDirectory": "contracts/lib"
 }

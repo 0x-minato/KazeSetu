@@ -7,7 +7,7 @@ import { ReentrancyGuardTransient } from "@openzeppelin/contracts/utils/Reentran
 import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import { ZeroAddress } from "../errors/Errors.sol";
 
-abstract contract VaultCommon is 
+abstract contract KazeCommon is 
     PausableUpgradeable, 
     AccessControlUpgradeable, 
     ReentrancyGuardTransient, 
@@ -20,7 +20,7 @@ abstract contract VaultCommon is
         _disableInitializers();
     }
 
-    function __VaultCommon_init(address admin) internal onlyInitializing {
+    function __KazeCommon_init(address admin) internal onlyInitializing {
         if (admin == address(0)) revert ZeroAddress();
         __AccessControl_init();
         __Pausable_init();
