@@ -8,3 +8,4 @@ error BrokenInvariant();
 error InvalidTicks();
 error InvalidTokens();
 error InvalidFee();
+error InvalidShares();
