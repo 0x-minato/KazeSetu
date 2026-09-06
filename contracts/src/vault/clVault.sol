@@ -119,6 +119,83 @@ contract KazeClVault is KazeCommon, IKazeClVault, ERC20Upgradeable {
         _handle_fees();
     }
 
+    function rebalance(
+        int24 new_lower_tick, 
+        int24 new_upper_tick, 
+        uint256 amount_out_min
+    ) external override whenNotPaused nonReentrant onlyRole(GOVERNOR_ROLE) returns(
+        uint256 new_liquidity, uint256 amount0_used, uint256 amount1_used
+    ) {
+        // check ticks 
+        PositionConfig memory position_ = position;
+        if (position_.token_id == 0) revert ZeroTokenId();
+        PoolData memory pool_data = _get_pool_data(position_);
+        if (pool_data.liquidity == 0) revert ZeroLiquidity();
+
+        int24 curr_tick = TickMath.getTickAtSqrtRatio(pool_data.sqrt_price_x96);
+        if (curr_tick < position_.tick_upper && curr_tick >= position_.tick_lower) revert InvalidTicks();
+
+        if (new_lower_tick >= new_upper_tick) revert InvalidTicks();
+        if (curr_tick >= new_upper_tick || curr_tick < new_lower_tick) revert InvalidTicks();
+        IUniswapV3Pool pool = IUniswapV3Pool(position_.pool);
+        int24 spacing = pool.tickSpacing();
+        if (new_upper_tick % spacing != 0 || new_lower_tick % spacing != 0) revert InvalidTicks();
+
+        // withdraw all funds
+        (uint256 amount0, uint256 amount1) = LiquidityAmounts.getAmountsForLiquidity(
+            pool_data.sqrt_price_x96, 
+            TickMath.getSqrtRatioAtTick(position_.tick_lower), 
+            TickMath.getSqrtRatioAtTick(position_.tick_upper),  
+            pool_data.liquidity
+        );
+
+        (uint256 amount0_removed, uint256 amount1_removed) = 
+            _remove_liquidity_uniswap(
+                uint256(position_.token_id), 
+                pool_data.liquidity, 
+                amount0, 
+                amount1, 
+                address(this),
+                true
+            );
+
+        // redeposit in new ticks 
+        int24 old_lower_tick = position_.tick_lower;
+        int24 old_upper_tick = position_.tick_upper;
+        position.tick_lower = new_lower_tick;
+        position.tick_upper = new_upper_tick;
+        position.token_id = 0;
+        position_.tick_lower = new_lower_tick;
+        position_.tick_upper = new_upper_tick;
+        position_.token_id = 0;
+
+        (pool_data.amount0_total, pool_data.amount1_total) = LiquidityAmounts.getAmountsForLiquidity(
+            pool_data.sqrt_price_x96,
+            TickMath.getSqrtRatioAtTick(new_lower_tick),
+            TickMath.getSqrtRatioAtTick(new_upper_tick),
+            PRICE_SCALE.toUint128()
+        );
+
+        (amount0_used, amount1_used, new_liquidity) = _rebalance_and_add(
+            pool_data,
+            position_,
+            amount0_removed,
+            amount1_removed,
+            amount_out_min,
+            true
+        );
+
+        emit Rebalance(
+            old_lower_tick,
+            old_upper_tick,
+            new_lower_tick,
+            new_upper_tick,
+            new_liquidity,
+            amount0_used,
+            amount1_used
+        );
+    }
+
     function _handle_fees() internal {
         PositionConfig memory position_ = position;
         PoolData memory pool_data = _get_pool_data(position_);
@@ -197,14 +274,21 @@ contract KazeClVault is KazeCommon, IKazeClVault, ERC20Upgradeable {
         _burn(msg.sender, shares);
 
         (uint256 amount0, uint256 amount1) = LiquidityAmounts.getAmountsForLiquidity(
-            pool_data.sqrt_price_x96.toUint160(), 
+            pool_data.sqrt_price_x96, 
             TickMath.getSqrtRatioAtTick(position_.tick_lower), 
             TickMath.getSqrtRatioAtTick(position_.tick_upper),  
             liquidity
         );
 
         (uint256 amount0_removed, uint256 amount1_removed) = 
-            _remove_liquidity_uniswap(uint256(position_.token_id), liquidity, amount0, amount1, receiver);
+            _remove_liquidity_uniswap(
+                uint256(position_.token_id), 
+                liquidity, 
+                amount0, 
+                amount1, 
+                receiver,
+                false
+            );
 
         myPosition = MyPosition({
             liquidity: liquidity,
@@ -263,7 +347,12 @@ contract KazeClVault is KazeCommon, IKazeClVault, ERC20Upgradeable {
     }
 
     function _remove_liquidity_uniswap(
-        uint256 token_id, uint128 liquidity, uint256 amount0, uint256 amount1, address receiver
+        uint256 token_id, 
+        uint128 liquidity, 
+        uint256 amount0, 
+        uint256 amount1, 
+        address receiver, 
+        bool isRebalance
     ) internal returns(
         uint256 amount0_removed, uint256 amount1_removed
     ) {
@@ -283,8 +372,8 @@ contract KazeClVault is KazeCommon, IKazeClVault, ERC20Upgradeable {
             INonfungiblePositionManager.CollectParams({
                 tokenId: token_id,
                 recipient: receiver,
-                amount0Max: a0.toUint128(),
-                amount1Max: a1.toUint128()
+                amount0Max: isRebalance ? type(uint128).max : a0.toUint128(),
+                amount1Max: isRebalance ? type(uint128).max : a1.toUint128()
             })
         );
 
@@ -308,7 +397,7 @@ contract KazeClVault is KazeCommon, IKazeClVault, ERC20Upgradeable {
         );
 
         uint256 liquidity = LiquidityAmounts.getLiquidityForAmounts(
-            pool_data.sqrt_price_x96.toUint160(), 
+            pool_data.sqrt_price_x96, 
             TickMath.getSqrtRatioAtTick(position_.tick_lower), 
             TickMath.getSqrtRatioAtTick(position_.tick_upper), 
             amount0_swap, 
