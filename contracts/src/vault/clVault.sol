@@ -107,53 +107,77 @@ contract KazeClVault is KazeCommon, IKazeClVault, ERC20Upgradeable {
         emit Withdraw(msg.sender, myPosition.amount0, myPosition.amount1, myPosition.liquidity, receiver);
     }
 
+    function convert_to_assets(uint256 shares, uint256 total_liquidity) external override view returns(uint256 liquidity) {
+        liquidity = _convert_to_assets(shares, total_liquidity);
+    }
+
+    function convert_to_shares(uint256 liquidity, uint256 total_liquidity) external override view returns(uint256 shares) {
+        shares = _convert_to_shares(liquidity, total_liquidity);
+    }
+
+    function handle_fees() external override whenNotPaused nonReentrant {
+        _handle_fees();
+    }
+
+    function _handle_fees() internal {
+        PositionConfig memory position_ = position;
+        PoolData memory pool_data = _get_pool_data(position_);
+
+        if (position_.token_id == 0) return;
+
+        (uint256 amount0_fees, uint256 amount1_fees) = manager.collect(
+            INonfungiblePositionManager.CollectParams({
+                tokenId: position_.token_id,
+                recipient: address(this),
+                amount0Max: type(uint128).max,
+                amount1Max: type(uint128).max
+            })
+        );
+
+        uint256 amount0_used;
+        uint256 amount1_used;
+        uint256 liquidity;
+        if (amount0_fees != 0 || amount1_fees != 0) {
+            (amount0_used, amount1_used, liquidity) = _rebalance_and_add(
+                pool_data,
+                position_,
+                amount0_fees,
+                amount1_fees,
+                0,
+                true
+            );
+        }
+
+        if (liquidity != 0) {
+            emit HandleFees(liquidity, amount0_used, amount1_used);
+        }
+    } 
+
     function _process_deposit(
         uint256 amount0,
         uint256 amount1,
         uint256 amountOutMin
     ) internal returns(uint256 shares, uint256 amount0Used, uint256 amount1Used
     ) {
+        // handle fees 
+        _handle_fees();
+
         if (amount0 != 0) SafeERC20.safeTransferFrom(token0, msg.sender, address(this), amount0);
         if (amount1 != 0) SafeERC20.safeTransferFrom(token1, msg.sender, address(this), amount1);
 
         PositionConfig memory position_ = position;
         PoolData memory pool_data = _get_pool_data(position_);
-        (uint256 amount0_swap, uint256 amount1_swap) = _compute_swap_amounts(
-            pool_data.price,
-            amount0,
-            amount1,
-            pool_data.amount0_total,
-            pool_data.amount1_total
-        );
 
-        uint256 a0 = amount0;
-        uint256 a1 = amount1;
-        if(amount0 > amount0_swap) {
-            // swap amount0 - amount0_swap
-            (a0, a1) = _swap_for_direction(
-                amount0,
-                amount1,
-                amount0_swap,
-                amountOutMin,
-                pool_data.price,
-                true
-            );
-        } else if(amount1 > amount1_swap) {
-            // swap amount1 - amount1_swap
-            (a0, a1) = _swap_for_direction(
-                amount1,
-                amount0,
-                amount1_swap,
-                amountOutMin,
-                pool_data.price,
-                false
-            );
-        }
 
         uint256 liquidityAdded;
-        (liquidityAdded, amount0Used, amount1Used) = _add_liquidity_uniswap(
-            uint256(position_.token_id), position_.tick_lower, position_.tick_upper, a0, a1
-        ); 
+        (amount0Used, amount1Used, liquidityAdded) = _rebalance_and_add(
+            pool_data,
+            position_,
+            amount0,
+            amount1,
+            amountOutMin,
+            false
+        );
 
         shares = (pool_data.liquidity == 0) ? liquidityAdded : _convert_to_shares(liquidityAdded, pool_data.liquidity);
     }
@@ -161,6 +185,9 @@ contract KazeClVault is KazeCommon, IKazeClVault, ERC20Upgradeable {
     function _process_withdraw(uint256 shares, address receiver) internal returns(
         MyPosition memory myPosition
     ) {
+        // handle fees
+        _handle_fees();
+
         PositionConfig memory position_ = position;
         PoolData memory pool_data = _get_pool_data(position_);
         // calc liquidity before burning shares for correct calc
@@ -187,7 +214,7 @@ contract KazeClVault is KazeCommon, IKazeClVault, ERC20Upgradeable {
     }
 
     function _add_liquidity_uniswap(
-        uint256 token_id, int24 tick_lower, int24 tick_upper, uint256 a0, uint256 a1
+        uint256 token_id, int24 tick_lower, int24 tick_upper, uint256 a0, uint256 a1, bool is_handle_fees
     ) internal returns(
         uint256 liquidityAdded, uint256 amount0Used, uint256 amount1Used
     ) {
@@ -226,13 +253,13 @@ contract KazeClVault is KazeCommon, IKazeClVault, ERC20Upgradeable {
             );
         }
 
-        if (liquidityAdded == 0) revert ZeroLiquidity();
-
         uint256 bal0_dust = a0 - amount0Used;
         uint256 bal1_dust = a1 - amount1Used;
 
-        if (bal0_dust != 0) SafeERC20.safeTransfer(t0, msg.sender, bal0_dust); 
-        if (bal1_dust != 0) SafeERC20.safeTransfer(t1, msg.sender, bal1_dust);
+        if (!is_handle_fees) {
+            if (bal0_dust != 0) SafeERC20.safeTransfer(t0, msg.sender, bal0_dust); 
+            if (bal1_dust != 0) SafeERC20.safeTransfer(t1, msg.sender, bal1_dust);
+        }
     }
 
     function _remove_liquidity_uniswap(
@@ -262,6 +289,64 @@ contract KazeClVault is KazeCommon, IKazeClVault, ERC20Upgradeable {
         );
 
         if (amount0_removed == 0 && amount1_removed == 0) revert ZeroAmount();
+    }
+
+    function _rebalance_and_add(
+        PoolData memory pool_data,
+        PositionConfig memory position_,
+        uint256 amount0,
+        uint256 amount1,
+        uint256 amountOutMin,
+        bool is_handle_fees
+    ) internal returns(uint256 amount0Used, uint256 amount1Used, uint256 liquidityAdded){
+        (uint256 amount0_swap, uint256 amount1_swap) = _compute_swap_amounts(
+            pool_data.price,
+            amount0,
+            amount1,
+            pool_data.amount0_total,
+            pool_data.amount1_total
+        );
+
+        uint256 liquidity = LiquidityAmounts.getLiquidityForAmounts(
+            pool_data.sqrt_price_x96.toUint160(), 
+            TickMath.getSqrtRatioAtTick(position_.tick_lower), 
+            TickMath.getSqrtRatioAtTick(position_.tick_upper), 
+            amount0_swap, 
+            amount1_swap
+        );
+
+        if (liquidity == 0) {
+            if (is_handle_fees) return (0, 0, 0);
+            revert ZeroLiquidity();
+        }
+
+        uint256 a0 = amount0;
+        uint256 a1 = amount1;
+        if(amount0 > amount0_swap) {
+            // swap amount0 - amount0_swap
+            (a0, a1) = _swap_for_direction(
+                amount0,
+                amount1,
+                amount0_swap,
+                amountOutMin,
+                pool_data.price,
+                true
+            );
+        } else if(amount1 > amount1_swap) {
+            // swap amount1 - amount1_swap
+            (a0, a1) = _swap_for_direction(
+                amount1,
+                amount0,
+                amount1_swap,
+                amountOutMin,
+                pool_data.price,
+                false
+            );
+        }
+
+        (liquidityAdded, amount0Used, amount1Used) = _add_liquidity_uniswap(
+            uint256(position_.token_id), position_.tick_lower, position_.tick_upper, a0, a1, is_handle_fees
+        );
     }
 
     function _convert_to_assets(

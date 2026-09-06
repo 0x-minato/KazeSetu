@@ -230,4 +230,12 @@ interface IUniswapV3Pool {
     function token1() external view returns (address);
     function fee() external view returns (uint24);
     function tickSpacing() external view returns (int24); // optional but useful
+
+    function collect(
+        address recipient,
+        int24 tickLower,
+        int24 tickUpper,
+        uint128 amount0Requested,
+        uint128 amount1Requested
+    ) external returns (uint128 amount0, uint128 amount1);
 }

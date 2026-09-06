@@ -15,4 +15,8 @@ interface IClVaultActions {
         uint256 shares,
         address receiver
     ) external returns(MyPosition memory);
+
+    function convert_to_assets(uint256 shares, uint256 total_liquidity) external view returns(uint256 liquidity);
+    function convert_to_shares(uint256 liquidity, uint256 total_liquidity) external view returns(uint256 shares);
+    function handle_fees() external;
 }
