@@ -4,6 +4,7 @@ pragma solidity ^0.8.27;
 error ZeroAddress();
 error ZeroLiquidity();
 error ZeroAmount();
+error ZeroTokenId();
 error BrokenInvariant();
 error InvalidTicks();
 error InvalidTokens();

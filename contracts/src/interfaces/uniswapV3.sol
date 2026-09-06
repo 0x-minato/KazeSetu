@@ -188,7 +188,7 @@ interface ISwapRouter {
 }
 
 struct PoolData {
-    uint256 sqrt_price_x96;
+    uint160 sqrt_price_x96;
     uint256 price;
     uint128 liquidity;
     uint256 amount0_total;
