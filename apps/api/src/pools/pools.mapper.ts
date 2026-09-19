@@ -12,6 +12,7 @@ export const toPool = (pool: PoolWithTokens): Pool => ({
     feeBps: pool.feeBps,
     reserve0: pool.reserve0.toString(),
     reserve1: pool.reserve1.toString(),
+    totalSupply: pool.totalSupply.toString(),
     token0: toToken(pool.token0),
     token1: toToken(pool.token1),
 })

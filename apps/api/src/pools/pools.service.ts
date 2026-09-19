@@ -53,6 +53,7 @@ export const setPoolService = async (body: PoolBodyDTO): Promise<Pool> => {
         token0Id: token0.id,
         token1Id: token1.id,
         feeBps: pool.feeBps,
+        totalSupply: pool.totalSupply,
         reserve0: pool.reserve0,
         reserve1: pool.reserve1,
         isActive: pool.isActive,

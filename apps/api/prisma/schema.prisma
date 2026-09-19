@@ -34,35 +34,21 @@ enum StakingEventType {
   CLAIM
 }
 
-model User {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  wallets         Wallet[]
-  refreshSessions RefreshSession[]
-  role            Role                @default(USER)
-  swaps           Swap[]
-  liquidity       LiquidityPosition[]
-  liquidityEvent  LiquidityEvent[]
-  stakingPosition StakingPosition[]
-  stakingEvent    StakingEvent[]
-
-  @@map("users")
-}
-
 model Wallet {
   id        String   @id @default(cuid())
   address   String   @unique
-  userId    String
+  role      Role     @default(USER)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  balances WalletBalance[]
+  balances         WalletBalance[]
+  swaps            Swap[]
+  liquidity        LiquidityPosition[]
+  liquidityEvent   LiquidityEvent[]
+  stakingPosition  StakingPosition[]
+  stakingEvent     StakingEvent[]
+  refreshSessions  RefreshSession[]
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
   @@map("wallet")
 }
 
@@ -83,15 +69,15 @@ model RefreshToken {
 
 model RefreshSession {
   id        String    @id @default(cuid())
-  userId    String
+  walletId  String
   revokedAt DateTime?
   createdAt DateTime  @default(now())
   expiresAt DateTime
 
-  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wallet Wallet         @relation(fields: [walletId], references: [id], onDelete: Cascade)
   tokens RefreshToken[]
 
-  @@index([userId])
+  @@index([walletId])
   @@index([expiresAt])
   @@map("refresh_session")
 }
@@ -155,6 +141,7 @@ model Pool {
   feeBps    Int
   reserve0  Decimal  @db.Decimal(36, 18)
   reserve1  Decimal  @db.Decimal(36, 18)
+  totalSupply Decimal @db.Decimal(36, 18)
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -175,7 +162,7 @@ model Pool {
 
 model Swap {
   id         String     @id @default(cuid())
-  userId     String
+  walletId   String
   chainId    Int
   poolId     String
   tokenInId  String
@@ -187,36 +174,36 @@ model Swap {
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
 
-  user     User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  pool     Pool  @relation(fields: [poolId], references: [id], onDelete: Cascade)
-  tokenIn  Token @relation("SwapTokenIn", fields: [tokenInId], references: [id], onDelete: Cascade)
-  tokenOut Token @relation("SwapTokenOut", fields: [tokenOutId], references: [id], onDelete: Cascade)
+  wallet   Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  pool     Pool   @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  tokenIn  Token  @relation("SwapTokenIn", fields: [tokenInId], references: [id], onDelete: Cascade)
+  tokenOut Token  @relation("SwapTokenOut", fields: [tokenOutId], references: [id], onDelete: Cascade)
 
   @@unique([chainId, txHash])
-  @@index([userId])
+  @@index([walletId])
   @@map("swaps")
 }
 
 model LiquidityPosition {
   id            String   @id @default(cuid())
-  userId        String
+  walletId      String
   poolId        String
   chainId       Int
   lpTokenAmount Decimal  @db.Decimal(36, 18)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  pool Pool @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  pool   Pool   @relation(fields: [poolId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, poolId])
-  @@index([userId])
+  @@unique([walletId, poolId])
+  @@index([walletId])
   @@map("liquidity_positions")
 }
 
 model LiquidityEvent {
   id        String             @id @default(cuid())
-  userId    String
+  walletId  String
   poolId    String
   chainId   Int
   type      LiquidityEventType
@@ -227,11 +214,11 @@ model LiquidityEvent {
   status    SwapStatus         @default(PENDING)
   createdAt DateTime           @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  pool Pool @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  pool   Pool   @relation(fields: [poolId], references: [id], onDelete: Cascade)
 
   @@unique([chainId, txHash])
-  @@index([userId])
+  @@index([walletId])
   @@map("liquidity_events")
 }
 
@@ -259,24 +246,24 @@ model StakingFarm {
 
 model StakingPosition {
   id           String   @id @default(cuid())
-  userId       String
+  walletId     String
   farmId       String
   chainId      Int
   stakedAmount Decimal  @db.Decimal(36, 18)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  user User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  farm StakingFarm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  wallet Wallet      @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  farm   StakingFarm @relation(fields: [farmId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, farmId])
-  @@index([userId])
+  @@unique([walletId, farmId])
+  @@index([walletId])
   @@map("staking_positions")
 }
 
 model StakingEvent {
   id        String           @id @default(cuid())
-  userId    String
+  walletId  String
   farmId    String
   chainId   Int
   type      StakingEventType
@@ -285,10 +272,10 @@ model StakingEvent {
   status    SwapStatus       @default(PENDING)
   createdAt DateTime         @default(now())
 
-  user User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  farm StakingFarm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  wallet Wallet      @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  farm   StakingFarm @relation(fields: [farmId], references: [id], onDelete: Cascade)
 
   @@unique([chainId, txHash])
-  @@index([userId])
+  @@index([walletId])
   @@map("staking_events")
 }

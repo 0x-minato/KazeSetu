@@ -15,6 +15,8 @@ priceRouter.get('/:address',
     validateParams(tokenAddressParamsSchema), 
     getPriceForSupportedToken
 )
+
+// todo: this is a worker flow, add auth for worker role
 priceRouter.put('/:address',
     authenticateAccessToken,
     requireAdmin,

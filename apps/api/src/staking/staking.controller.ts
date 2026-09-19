@@ -34,18 +34,18 @@ export const setFarm = async (req: Request, res: Response) => {
 }
 
 export const getUserFarmPositions = async (req: Request, res: Response) => {
-    const positions = await getUserPositionsService(getAuth(req).userId)
+    const positions = await getUserPositionsService(getAuth(req).address)
     sendSuccess(res, positions)
 }
 
 export const getUserFarmEvents = async (req: Request, res: Response) => {
-    const userEvents = await getUserFarmEventsService(getAuth(req).userId)
+    const userEvents = await getUserFarmEventsService(getAuth(req).address)
     sendSuccess(res, userEvents)
 }
 
 export const getUserFarmEvent = async (req: Request, res: Response) => {
     const { txHash } = req.params as TxHashParamsDTO
     const { chainId } = req.query as unknown as ChainIdQueryDTO
-    const event = await getUserFarmEventService(getAuth(req).userId, chainId, txHash)
+    const event = await getUserFarmEventService(getAuth(req).address, chainId, txHash)
     sendSuccess(res, event)
 }

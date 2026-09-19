@@ -6,6 +6,7 @@ export interface Pool {
     feeBps: number
     reserve0: string
     reserve1: string
+    totalSupply: string
     token0: Token
     token1: Token
 }

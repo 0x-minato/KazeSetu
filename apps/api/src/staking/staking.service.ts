@@ -59,22 +59,22 @@ export const setFarmService = async (body: FarmBodyDTO): Promise<FarmData> => {
     return toFarm(created)
 }
 
-export const getUserPositionsService = async (userId: string): Promise<StakingPosition[]> => {
-    const positions = await getAllUserPositions(userId)
+export const getUserPositionsService = async (address: string): Promise<StakingPosition[]> => {
+    const positions = await getAllUserPositions(address)
     return positions.map(toPosition)
 }
 
-export const getUserFarmEventsService = async (userId: string): Promise<StakingEvent[]> => {
-    const userEvents = await getAllUserFarmEvents(userId)
+export const getUserFarmEventsService = async (address: string): Promise<StakingEvent[]> => {
+    const userEvents = await getAllUserFarmEvents(address)
     return userEvents.map(toStakingEvent)
 }
 
 export const getUserFarmEventService = async (
-    userId: string,
+    address: string,
     chainId: number,
     txHash: string,
 ): Promise<StakingEvent> => {
-    const event = await getEventChainIdTxHash(userId, chainId, txHash)
+    const event = await getEventChainIdTxHash(address, chainId, txHash)
     if (!event) throw notFound("event not found")
     return toStakingEvent(event)
 }

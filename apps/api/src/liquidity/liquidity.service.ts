@@ -1,18 +1,18 @@
 import { toPool } from "../pools/pools.mapper"
 import { notFound } from "../utils/api-error"
-import { getAllLiquidityEventsSuccess, getLiquidityByUserId, getLiquidityEventByUserId, getLiquidityEventByUserIdChainIdHash } from "./liquidity.repository"
+import { getAllLiquidityEventsSuccess, getLiquidityByAddress, getLiquidityEventByAddress, getLiquidityEventByAddressChainIdHash } from "./liquidity.repository"
 import { Liquidity, LiquidityEvent } from "./liquidity.types"
 
-type LiquidityFromRepo = Awaited<ReturnType<typeof getLiquidityByUserId>>[number]
-type LiquidityEventFromRepo = Awaited<ReturnType<typeof getLiquidityEventByUserId>>[number]
+type LiquidityFromRepo = Awaited<ReturnType<typeof getLiquidityByAddress>>[number]
+type LiquidityEventFromRepo = Awaited<ReturnType<typeof getLiquidityEventByAddress>>[number]
 
-export const getLiquidityService = async (userId: string): Promise<Liquidity[]> => {
-    const liquidity = await getLiquidityByUserId(userId) 
+export const getLiquidityService = async (address: string): Promise<Liquidity[]> => {
+    const liquidity = await getLiquidityByAddress(address) 
     return liquidity.map(toLiquidity)
 }
 
-export const getLiquidityEventsService = async (userId: string): Promise<LiquidityEvent[]> => {
-    const liquidity = await getLiquidityEventByUserId(userId) 
+export const getLiquidityEventsService = async (address: string): Promise<LiquidityEvent[]> => {
+    const liquidity = await getLiquidityEventByAddress(address) 
     return liquidity.map(toLiquidityEvent)
 }
 
@@ -22,12 +22,12 @@ export const getLiquidityEvents24HrService = async () => {
 } 
 
 export const getLiquidityEventService = async (
-    userId: string,
+    address: string,
     chainId: number,
     txHash: string
 ): Promise<LiquidityEvent> => {
-    const liquidity = await getLiquidityEventByUserIdChainIdHash(
-        userId, chainId, txHash
+    const liquidity = await getLiquidityEventByAddressChainIdHash(
+        address, chainId, txHash
     )
     if (!liquidity) throw notFound("liquidity event not found")
     return toLiquidityEvent(liquidity)

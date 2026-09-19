@@ -1,13 +1,13 @@
-import { getAllSwaps24Hr, getSwapByUserIdHashChainId, getSwapsByUserId } from "./swaps.repository"
+import { getAllSwaps24Hr, getSwapByAddressHashChainId, getSwapsByAddress } from "./swaps.repository"
 import { SwapData } from "./swaps.types"
 import { toToken } from "../tokens/tokens.mapper"
 import { toPool } from "../pools/pools.mapper"
 import { notFound } from "../utils/api-error"
 
-type SwapFromRepo = Awaited<ReturnType<typeof getSwapsByUserId>>[number]
+type SwapFromRepo = Awaited<ReturnType<typeof getSwapsByAddress>>[number]
 
-export const getSwapsService = async (userId: string): Promise<SwapData[]> => {
-   const swaps = await getSwapsByUserId(userId)
+export const getSwapsService = async (address: string): Promise<SwapData[]> => {
+   const swaps = await getSwapsByAddress(address)
    return swaps.map(toSwap)
 }
 
@@ -17,11 +17,11 @@ export const getAllSwapsService = async () => {
 }
 
 export const getSwapService = async (
-    userId: string, 
+    address: string, 
     txHash: string, 
     chainId: number
 ): Promise<SwapData> => {
-    const swapData = await getSwapByUserIdHashChainId(userId, chainId, txHash)
+    const swapData = await getSwapByAddressHashChainId(address, chainId, txHash)
     if (!swapData) throw notFound("swap data not found")
     return toSwap(swapData)
 }

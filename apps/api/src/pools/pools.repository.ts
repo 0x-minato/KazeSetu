@@ -51,6 +51,7 @@ export const setNewPool = (input: {
     token0Id: string
     token1Id: string
     feeBps: number
+    totalSupply: string,
     reserve0: string
     reserve1: string
     isActive: boolean
@@ -62,6 +63,7 @@ export const setNewPool = (input: {
             token0Id: input.token0Id,
             token1Id: input.token1Id,
             feeBps: input.feeBps,
+            totalSupply: input.totalSupply,
             reserve0: input.reserve0,
             reserve1: input.reserve1,
             isActive: input.isActive,

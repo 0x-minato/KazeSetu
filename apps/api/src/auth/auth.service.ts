@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto"
-import { Prisma } from "../../app/generated/prisma/client.js"
+import { Prisma, Role } from "../../app/generated/prisma/client.js"
 import { 
   CLOCK_SKEW_MS, 
   MAX_MESSAGE_AGE_MS, 
@@ -7,26 +7,28 @@ import {
   SIWE_ALLOWED_CHAIN_IDS, 
   SIWE_DOMAIN, 
   SIWE_URI,
-  REFRESH_TOKEN_TTL_MS 
+  REFRESH_TOKEN_TTL_MS, 
+  ADMIN_ADDRESS
 } from "../config/env"
 import { SiweMessage } from "siwe"
 import { badRequest, unauthorized } from "../utils/api-error"
 import type {
+  AddressRole,
   AuthenticationResult,
   RefreshTokenRotationResult,
-  UserIdRole,
   VerifiedSiwe,
   VerifyAuthenticationInput
 } from "./auth.types"
 import { RefreshTokenRotationConflictError } from "./auth.errors"
 import { 
   createRefreshSessionWithToken, 
-  createUserWithWallet, 
+  createWallet, 
   findRefreshTokenByHash, 
   findWalletByAddress, 
   replaceRefreshToken, 
   revokeRefreshSession, 
-  revokeRefreshSessionByTokenHash 
+  revokeRefreshSessionByTokenHash, 
+  setRoleForWallet
 } from "./auth.repository"
 import { generateAccessToken } from "./auth.token"
 
@@ -56,9 +58,9 @@ export const verifyAuthentication = async (
 ): Promise<AuthenticationResult> => {
     const verifiedSiwe = await verifySiweMessage({message, signature})
 
-    const {userId, role } = await findOrCreateUserByWalletAddress(verifiedSiwe.address)
+    const { role, walletId } = await findOrCreateWalletByAddress(verifiedSiwe.address)
 
-    const accessToken = await generateAccessToken(userId, role)
+    const accessToken = await generateAccessToken(verifiedSiwe.address, role)
     const refreshToken = randomBytes(32).toString("base64url")
 
     const refreshTokenHash = createHash("sha256")
@@ -70,13 +72,12 @@ export const verifyAuthentication = async (
     )
 
     await createRefreshSessionWithToken(
-      userId,
+      walletId,
       refreshTokenHash,
       refreshTokenExpiresAt
     )
 
     return {
-        userId,
         address: verifiedSiwe.address,
         chainId: verifiedSiwe.chainId,
         accessToken,
@@ -152,10 +153,10 @@ export const replaceRefreshTokenService = async (
 
   const validatedRefreshToken = await validateRefreshTokenForRotation(refreshTokenDB)
 
-  const userId = validatedRefreshToken.session.userId
+  const walletId = validatedRefreshToken.session.walletId
   const newAccessToken = await generateAccessToken(
-    userId,
-    validatedRefreshToken.session.user.role
+    validatedRefreshToken.session.wallet.address,
+    validatedRefreshToken.session.wallet.role,
   )
   const newRefreshToken = randomBytes(32).toString("base64url")
   const newRefreshTokenHash = createHash("sha256")
@@ -173,7 +174,7 @@ export const replaceRefreshTokenService = async (
     await replaceRefreshToken(
       refreshTokenHash,
       newRefreshTokenHash,
-      userId,
+      walletId,
       newRefreshTokenExpiresAt
     )
   } catch (error) {
@@ -202,23 +203,31 @@ export const logoutService = async(refreshTokenCookie: string): Promise<void> =>
 }
 
 
-const findOrCreateUserByWalletAddress = async (
+type AuthWalletIdentity = AddressRole & { walletId: string }
+
+const findOrCreateWalletByAddress = async (
   address: string,
-): Promise<UserIdRole> => {
+): Promise<AuthWalletIdentity> => {
   const existingWallet = await findWalletByAddress(address)
+  const role = isAdminAddress(address)
 
   if (existingWallet) {
+    if (existingWallet.role != role) {
+      await setRoleForWallet(existingWallet.id, role)
+    }
     return { 
-      userId: existingWallet.userId, 
-      role: existingWallet.user.role 
+      walletId: existingWallet.id,
+      address,
+      role,
     }
   }
 
   try {
-    const user = await createUserWithWallet(address)
+    const wallet = await createWallet(address, role)
     return {
-      userId: user.id,
-      role: user.role
+      walletId: wallet.id,
+      address,
+      role: wallet.role,
     }
   } catch (error) {
     if (
@@ -229,9 +238,15 @@ const findOrCreateUserByWalletAddress = async (
         await findWalletByAddress(address)
 
       if (concurrentlyCreatedWallet) {
+        if (concurrentlyCreatedWallet.role !== role) {
+          await setRoleForWallet(
+            concurrentlyCreatedWallet.id, role
+          )
+        }
         return { 
-          userId: concurrentlyCreatedWallet.userId,
-          role: concurrentlyCreatedWallet.user.role
+          walletId: concurrentlyCreatedWallet.id,
+          address,
+          role,
         }
       }
     }
@@ -298,4 +313,9 @@ export const verifySiweMessage = async (
       address: parsedMessage.address.toLowerCase(), 
       chainId: parsedMessage.chainId
     }
+}
+
+const isAdminAddress = (address: string): Role => {
+  return (ADMIN_ADDRESS != "" && address.toLowerCase() === ADMIN_ADDRESS) ? 
+    Role.ADMIN : Role.USER 
 }

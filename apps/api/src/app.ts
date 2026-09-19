@@ -6,7 +6,6 @@ import cors, { type CorsOptions } from "cors"
 import { CORS_ORIGIN } from "./config/env"
 import { API_ROUTES } from "./config/routes"
 import { globalRateLimiter } from './middlewares/rate-limit.js'
-import { userRouter } from './users/users.routes.js'
 import { tokenRouter } from './tokens/tokens.router.js'
 import { priceRouter } from './prices/prices.router.js'
 import { portfolioRouter } from './portfolio/portfolio.router.js'
@@ -39,7 +38,6 @@ app.get('/health', (_req, res) => {
 app.use(API_ROUTES.global, globalRateLimiter)
 
 app.use(API_ROUTES.auth, authRouter)
-app.use(API_ROUTES.users, userRouter)
 app.use(API_ROUTES.tokens, tokenRouter)
 app.use(API_ROUTES.prices, priceRouter)
 app.use(API_ROUTES.portfolio, portfolioRouter)
