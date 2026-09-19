@@ -5,13 +5,13 @@ import { getSwapService, getSwapsService } from "./swaps.service";
 import { ChainIdQueryDTO, SwapTxHashParamsDTO } from "./swaps.dto";
 
 export const getSwapsData = async (req: Request, res: Response) => {
-    const swapsData = await getSwapsService(getAuth(req).userId)
+    const swapsData = await getSwapsService(getAuth(req).address)
     sendSuccess(res, swapsData)
 }
 
 export const getSwapData = async (req: Request, res: Response) => {
     const { txHash } = req.params as SwapTxHashParamsDTO
     const { chainId } = req.query as unknown as ChainIdQueryDTO
-    const swapData = await getSwapService(getAuth(req).userId, txHash, chainId)
+    const swapData = await getSwapService(getAuth(req).address, txHash, chainId)
     sendSuccess(res, swapData)
 }

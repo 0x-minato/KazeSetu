@@ -6,7 +6,6 @@ export interface VerifyAuthenticationInput {
 }
 
 export interface AuthenticationResult {
-    userId: string
     address: string
     chainId: number
     accessToken: string
@@ -21,16 +20,16 @@ export interface RefreshTokenRotationResult {
 }
 
 export interface AuthenticatedUser {
-    userId: string,
+    address: string
     role: Role
 }
 
 export interface VerifiedSiwe {
-    address: string,
+    address: string
     chainId: number
 }
 
-export interface UserIdRole {
-    userId: string,
-    role : Role
+export interface AddressRole {
+    address: string
+    role: Role
 }

@@ -1,11 +1,10 @@
+import { Pool } from "../pools/pools.types";
+
 export interface Position {
-    address: string
-    chainId: number
-    symbol: string
-    decimals: number
-    balance: string
-    priceUsd: string
+    pool: Pool
     valueUsd: string
+    amount0: string
+    amount1: string
 }
 
 export interface Portfolio {

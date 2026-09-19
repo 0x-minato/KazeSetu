@@ -1,3 +1,4 @@
+import { Role } from '../../app/generated/prisma/enums'
 import { prisma } from '../config/database'
 import { RefreshTokenRotationConflictError } from './auth.errors'
 
@@ -5,38 +6,34 @@ export const findWalletByAddress = (address: string) => {
     return prisma.wallet.findUnique({
         where: {
             address
-        },
-        include: {
-            user: {
-                select: { role: true, id: true}
-            }
         }
     })
 }
 
-export const createUserWithWallet = (address: string) => {
-    return prisma.user.create({
+export const setRoleForWallet = (walletId: string, role: Role) => {
+    return prisma.wallet.update({
+        where: { id: walletId },
+        data: { role }
+    })
+}
+
+export const createWallet = (address: string, role: Role) => {
+    return prisma.wallet.create({
         data: {
-            wallets: {
-                create: {
-                    address
-                }
-            }
-        },
-        include: {
-            wallets: true
+            address,
+            role
         }
     })
 }
 
 export const createRefreshSessionWithToken = (
-    userId: string, 
+    walletId: string,
     tokenHash: string,
     expiresAt: Date
 ) => {
     return prisma.refreshSession.create({
         data: {
-            userId,
+            walletId,
             expiresAt,
             tokens: {
                 create: {
@@ -85,8 +82,8 @@ export const findRefreshTokenByHash = (tokenHash: string) => {
         include: {
             session: {
                 include: {
-                    user: {
-                        select: { role: true }
+                    wallet: {
+                        select: { address: true, role: true }
                     }
                 }
             }
@@ -97,7 +94,7 @@ export const findRefreshTokenByHash = (tokenHash: string) => {
 export const replaceRefreshToken = (
     oldTokenHash: string,
     newTokenHash: string,
-    userId: string,
+    walletId: string,
     expiresAt: Date
 ) => {
     return prisma.$transaction(async(tx) => {
@@ -106,7 +103,7 @@ export const replaceRefreshToken = (
             where: {
                 tokenHash: oldTokenHash,
                 session: {
-                    userId
+                    walletId
                 }
             }
         })
@@ -121,7 +118,7 @@ export const replaceRefreshToken = (
                 revokedAt: null,
                 expiresAt: { gt: now },
                 session: {
-                    userId,
+                    walletId,
                     revokedAt: null,
                     expiresAt: { gt: now }
                 }

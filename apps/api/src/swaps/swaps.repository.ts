@@ -12,10 +12,10 @@ const swapInclude = {
     tokenOut: true,
 } as const
 
-export const getSwapsByUserId = (userId: string) => {
+export const getSwapsByAddress = (address: string) => {
     return prisma.swap.findMany({
         where: {
-            userId,
+            wallet: { address },
         },
         include: swapInclude,
         orderBy: {
@@ -43,12 +43,12 @@ export const getAllSwaps24Hr = () => {
     })
 }
 
-export const getSwapByUserIdHashChainId = (userId: string, chainId: number, txHash: string) => {
+export const getSwapByAddressHashChainId = (address: string, chainId: number, txHash: string) => {
     return prisma.swap.findFirst({
         where: {
             chainId,
             txHash,
-            userId,
+            wallet: { address },
         },
         include: swapInclude,
     })

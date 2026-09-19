@@ -4,6 +4,6 @@ import { sendSuccess } from "../utils/api-response";
 import { getAuth } from "../types/authed-request";
 
 export const getPortfolio = async (req: Request, res: Response) => {
-    const userPortfolio = await getUserPortfolio(getAuth(req).userId)
+    const userPortfolio = await getUserPortfolio(getAuth(req).address)
     sendSuccess(res, userPortfolio)
 }

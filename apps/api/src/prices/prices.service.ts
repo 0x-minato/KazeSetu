@@ -1,3 +1,4 @@
+import { Decimal } from "@prisma/client/runtime/client"
 import { notFound } from "../utils/api-error"
 import { findTokenPriceByAddressAndChainId, findTokenPrices, updateTokenPrice } from "./prices.repository"
 import { TokenPrice } from "./prices.types"
@@ -26,6 +27,13 @@ export const getPrice = async (address: string, chainId: number): Promise<TokenP
         updatedAt: token.price.updatedAt
     }   
 }
+
+// prices.service — does not throw
+export const getPriceUsdOrZero = async (address: string, chainId: number) => {
+    const token = await findTokenPriceByAddressAndChainId(address, chainId)
+    if (!token?.isActive || !token.price) return new Decimal(0)
+    return token.price.priceUsd
+  }
 
 export const updatePrice = async (
     address: string, 

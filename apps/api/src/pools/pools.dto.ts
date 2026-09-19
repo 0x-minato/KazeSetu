@@ -16,6 +16,7 @@ export const poolBodySchema = z.object({
     token0Address: ethAddressSchema,
     token1Address: ethAddressSchema,
     feeBps: z.coerce.number().int().min(0).max(10_000),
+    totalSupply: reserveSchema.optional().default("0"),
     reserve0: reserveSchema.optional().default("0"),
     reserve1: reserveSchema.optional().default("0"),
     isActive: z.boolean().optional().default(true),

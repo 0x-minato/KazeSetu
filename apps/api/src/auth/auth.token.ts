@@ -5,23 +5,25 @@ import {
 } from "../config/env"
 import { ApiError, unauthorized } from "../utils/api-error"
 import { Role } from "../../app/generated/prisma/enums"
-import { UserIdRole } from "./auth.types"
+import { AddressRole } from "./auth.types"
 
 const algorithm = "HS256"
 const accessTokenSecret = new TextEncoder().encode(JWT_ACCESS_SECRET)
 
-export const generateAccessToken = (userId: string, role: Role): Promise<string> => {
+export const generateAccessToken = (
+  address: string, role: Role
+): Promise<string> => {
   const now = Math.floor(Date.now() / 1000)
 
   return new SignJWT({ role })
     .setProtectedHeader({ alg: algorithm, typ: "JWT" })
-    .setSubject(userId)
+    .setSubject(address)
     .setIssuedAt(now)
     .setExpirationTime(now + ACCESS_TOKEN_TTL_SECONDS)
     .sign(accessTokenSecret)
 }
 
-export const verifyAccessToken = async (token: string): Promise<UserIdRole> => {
+export const verifyAccessToken = async (token: string): Promise<AddressRole> => {
   try {
     const { payload } = await jwtVerify(token, accessTokenSecret, {
       algorithms: [algorithm],
@@ -30,7 +32,7 @@ export const verifyAccessToken = async (token: string): Promise<UserIdRole> => {
     const role = payload.role
     if (
       typeof payload.sub !== "string" || 
-      !payload.sub || 
+      !payload.sub ||
       (role !== Role.ADMIN && 
       role !== Role.USER)
     ) {
@@ -38,7 +40,7 @@ export const verifyAccessToken = async (token: string): Promise<UserIdRole> => {
     } 
 
     return { 
-      userId: payload.sub, 
+      address: payload.sub,
       role
     }
   } catch (error) {

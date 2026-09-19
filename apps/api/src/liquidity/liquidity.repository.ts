@@ -10,10 +10,10 @@ const poolWithTokensInclude = {
     },
 } as const
 
-export const getLiquidityByUserId = (userId: string) => {
+export const getLiquidityByAddress = (address: string) => {
     return prisma.liquidityPosition.findMany({
         where: {
-            userId,
+            wallet: { address },
             lpTokenAmount: { gt: 0 },
         },
         include: poolWithTokensInclude,
@@ -23,10 +23,10 @@ export const getLiquidityByUserId = (userId: string) => {
     })
 }
 
-export const getLiquidityEventByUserId = (userId: string) => {
+export const getLiquidityEventByAddress = (address: string) => {
     return prisma.liquidityEvent.findMany({
         where: {
-            userId,
+            wallet: { address },
         },
         include: poolWithTokensInclude,
         orderBy: {
@@ -52,14 +52,14 @@ export const getAllLiquidityEventsSuccess = () => {
     })
 }
 
-export const getLiquidityEventByUserIdChainIdHash = (
-    userId: string,
+export const getLiquidityEventByAddressChainIdHash = (
+    address: string,
     chainId: number,
     txHash: string,
 ) => {
     return prisma.liquidityEvent.findFirst({
         where: {
-            userId,
+            wallet: { address },
             chainId,
             txHash,
         },

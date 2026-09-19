@@ -18,8 +18,8 @@ export const authenticateAccessToken = async (
   }
 
   try {
-    const { userId, role} = await verifyAccessToken(token)
-    req.auth = { userId, role }
+    const { role, address } = await verifyAccessToken(token)
+    req.auth = { role, address }
     next()
   } catch (error) {
     next(error)

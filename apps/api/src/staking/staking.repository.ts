@@ -30,10 +30,10 @@ export const getAllFarmsDapp = () => {
     })
 }
 
-export const getAllUserPositions = (userId: string) => {
+export const getAllUserPositions = (address: string) => {
     return prisma.stakingPosition.findMany({
         where: {
-            userId,
+            wallet: { address },
             farm: activeFarmWhere,
             stakedAmount: { gt: 0}
         },
@@ -48,10 +48,10 @@ export const getAllUserPositions = (userId: string) => {
     })
 }
 
-export const getAllUserFarmEvents = (userId: string) => {
+export const getAllUserFarmEvents = (address: string) => {
     return prisma.stakingEvent.findMany({
         where: {
-            userId,
+            wallet: { address },
         },
         include: {
             farm: {
@@ -65,13 +65,13 @@ export const getAllUserFarmEvents = (userId: string) => {
 }
 
 export const getEventChainIdTxHash = (
-    userId: string,
+    address: string,
     chainId: number,
     txHash: string
 ) => {
     return prisma.stakingEvent.findFirst({
         where: {
-            userId,
+            wallet: { address },
             chainId,
             txHash
         },
