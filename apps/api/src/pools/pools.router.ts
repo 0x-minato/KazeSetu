@@ -1,8 +1,8 @@
 import { Router } from 'express'
-import { authenticateAccessToken, requireAdmin } from '../middlewares/authenticate'
-import { getPoolByAddressChainId, getPools, setPool } from './pools.controller'
+import { authenticateAccessToken, authenticateWorkerOrAdmin, requireAdmin } from '../middlewares/authenticate'
+import { getPoolByAddressChainId, getPools, setPool, updatePool } from './pools.controller'
 import { validateBody, validateParams, validateQuery } from '../middlewares/validate'
-import { chainIdQuerySchema, poolAddressParamsSchema, poolBodySchema } from './pools.dto'
+import { chainIdQuerySchema, poolAddressParamsSchema, poolBodySchema, poolStateBodySchema } from './pools.dto'
 
 export const poolRouter: Router = Router()
 
@@ -18,4 +18,11 @@ poolRouter.post('/',
     requireAdmin,
     validateBody(poolBodySchema),
     setPool 
+)
+poolRouter.put('/:address',
+    authenticateWorkerOrAdmin,
+    validateParams(poolAddressParamsSchema),
+    validateQuery(chainIdQuerySchema),
+    validateBody(poolStateBodySchema),
+    updatePool,
 )

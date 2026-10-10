@@ -177,3 +177,31 @@ export const revokeRefreshSessionByTokenHash = (
        return true
     })
 }
+
+export const deleteExpiredAuthNonces = (now = new Date()) => {
+    return prisma.authNonce.deleteMany({
+        where: {
+            expiresAt: { lte: now },
+        },
+    })
+}
+
+export const createAuthNonce = (nonce: string, expiresAt: Date) => {
+    return prisma.authNonce.create({
+        data: {
+            nonce,
+            expiresAt,
+        },
+    })
+}
+
+export const consumeAuthNonce = async (nonce: string): Promise<boolean> => {
+    const result = await prisma.authNonce.deleteMany({
+        where: {
+            nonce,
+            expiresAt: { gt: new Date() },
+        },
+    })
+
+    return result.count === 1
+}

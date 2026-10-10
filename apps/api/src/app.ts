@@ -31,7 +31,6 @@ app.use(cookieParser())
 app.get('/health', (_req, res) => {
     res.json({
         status: "ok",
-        bool: true
     })
 })
 

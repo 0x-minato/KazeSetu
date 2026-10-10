@@ -13,7 +13,5 @@ export const sendSuccess = <T>(res: Response, data: T, statusCode = 200, message
     }
     
     if (message) body.message = message
-    res.status(statusCode).json({
-        body
-    })
+    res.status(statusCode).json(body)
 }

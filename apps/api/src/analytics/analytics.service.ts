@@ -1,4 +1,5 @@
 import { Decimal } from "@prisma/client/runtime/client"
+import { LiquidityEventType } from "../../app/generated/prisma/enums"
 import { getAllSwapsService } from "../swaps/swaps.service"
 import { getPoolsTvlService } from "../pools/pools.service"
 import { getLiquidityEvents24HrService } from "../liquidity/liquidity.service"
@@ -51,8 +52,11 @@ export const getLiquidityService = async (): Promise<{liquidityUsd: string}> => 
         
         const amount0 = liq.amount0
         const amount1 = liq.amount1
-
-        const currLiq = price0.mul(amount0).add(price1.mul(amount1))
+        const signedValue = price0.mul(amount0).add(price1.mul(amount1))
+        const currLiq =
+          liq.type === LiquidityEventType.REMOVE
+            ? signedValue.neg()
+            : signedValue
 
         liquidity = liquidity.add(currLiq)
     }

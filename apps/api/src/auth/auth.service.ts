@@ -21,8 +21,11 @@ import type {
 } from "./auth.types"
 import { RefreshTokenRotationConflictError } from "./auth.errors"
 import { 
+  consumeAuthNonce,
+  createAuthNonce,
   createRefreshSessionWithToken, 
-  createWallet, 
+  createWallet,
+  deleteExpiredAuthNonces,
   findRefreshTokenByHash, 
   findWalletByAddress, 
   replaceRefreshToken, 
@@ -35,22 +38,18 @@ import { generateAccessToken } from "./auth.token"
 type RefreshTokenWithSession = NonNullable<
 Awaited<ReturnType<typeof findRefreshTokenByHash>>>
 
-const nonceStore = new Map<string, number>()
-export const generateNonce = (): string => {
+export const generateNonce = async (): Promise<string> => {
     const nonce = randomBytes(16).toString("hex")
-    const expiresAt = Date.now() + NONCE_TTL_MS
+    const expiresAt = new Date(Date.now() + NONCE_TTL_MS)
 
-    nonceStore.set(nonce, expiresAt)
+    await deleteExpiredAuthNonces()
+    await createAuthNonce(nonce, expiresAt)
 
     return nonce
 }
 
-const consumeNonce = (nonce: string): boolean => {
-    const expiresAt = nonceStore.get(nonce)
-
-    nonceStore.delete(nonce)
-
-    return expiresAt !== undefined && expiresAt > Date.now()
+const consumeNonce = (nonce: string): Promise<boolean> => {
+    return consumeAuthNonce(nonce)
 }
 
 export const verifyAuthentication = async (
@@ -306,7 +305,7 @@ export const verifySiweMessage = async (
     } catch {
         throw unauthorized("Invalid SIWE signature")
     }
-    if (!consumeNonce(parsedMessage.nonce)) {
+    if (!(await consumeNonce(parsedMessage.nonce))) {
         throw unauthorized("Invalid, expired, or previously used nonce")
     }
     return {

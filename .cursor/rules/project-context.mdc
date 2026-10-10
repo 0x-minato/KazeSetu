@@ -1,3 +1,16 @@
 ---
-alwaysApply: false
+alwaysApply: true
 ---
+# Project context
+
+Deep context for the next agent lives in `docs/agent-context.md`. Read it before changing `apps/api`, Prisma schema, portfolio math, or auth.
+
+Hard constraints that repeat that doc:
+
+- Modular monolith. One Express app. No extra HTTP servers, no microservices, no worker/indexer apps unless the user asks.
+- Wallet is the account (`Wallet.address`, lowercase). No `User` table. JWT `sub` is the address; `req.auth = { address, role }`.
+- Chain is protocol source of truth. Postgres is a projection (sessions, allowlists, cached USD, indexed events).
+- Portfolio values LP as `lp/totalSupply * reserves`, plus staked LP merged on the same pool. Missing price → $0 still show the row. `totalSupply === 0` with LP → 500, not $0.
+- Use Prisma `Decimal` for money. Store addresses lowercase. One admin: `ADMIN_ADDRESS`.
+- Success JSON is `{ success, data }`, not nested under `body`.
+- Do not invent architecture that is not already in the repo.

@@ -43,7 +43,9 @@ export const getAllLiquidityEventsSuccess = () => {
             createdAt: { gte: since}
         },
         select: {
-            amount0: true, amount1: true,
+            amount0: true,
+            amount1: true,
+            type: true,
             pool: { select: { 
                 token0: {select: { price: { select: { priceUsd: true}}}}, 
                 token1: {select: { price: { select: { priceUsd: true}}}}, 

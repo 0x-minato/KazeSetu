@@ -1,13 +1,9 @@
 import z from "zod"
-import { addressParamsSchema, chainIdSchema, ethAddressSchema } from "../dto/common"
+import { addressParamsSchema, chainIdSchema, ethAddressSchema, nonNegativeDecimalSchema } from "../dto/common"
 
 export const poolAddressParamsSchema = addressParamsSchema
 
-const reserveSchema = z
-  .string()
-  .trim()
-  .regex(/^(?:0|[1-9]\d*)(?:\.\d+)?$/, "Invalid reserve format")
-  .refine((value) => Number(value) >= 0, "reserve must be non-negative")
+const reserveSchema = nonNegativeDecimalSchema
 
 export const poolBodySchema = z.object({
   pool: z.object({
@@ -26,6 +22,14 @@ export const poolBodySchema = z.object({
   ),
 })
 
+export const poolStateBodySchema = z.object({
+  totalSupply: reserveSchema,
+  reserve0: reserveSchema,
+  reserve1: reserveSchema,
+  isActive: z.boolean().optional(),
+})
+
 export type PoolAddressParamsDTO = z.infer<typeof poolAddressParamsSchema>
 export type PoolBodyDTO = z.infer<typeof poolBodySchema>
+export type PoolStateBodyDTO = z.infer<typeof poolStateBodySchema>
 export { chainIdQuerySchema, type ChainIdQueryDTO } from "../dto/common"

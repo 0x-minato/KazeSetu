@@ -45,6 +45,31 @@ export const getPoolByAddressAndChainId = (address: string, chainId: number) => 
     })
 }
 
+export const updatePoolState = (input: {
+    address: string
+    chainId: number
+    totalSupply: string
+    reserve0: string
+    reserve1: string
+    isActive?: boolean
+}) => {
+    return prisma.pool.update({
+        where: {
+            chainId_address: {
+                chainId: input.chainId,
+                address: input.address,
+            },
+        },
+        data: {
+            totalSupply: input.totalSupply,
+            reserve0: input.reserve0,
+            reserve1: input.reserve1,
+            ...(input.isActive === undefined ? {} : { isActive: input.isActive }),
+        },
+        include: poolTokensInclude,
+    })
+}
+
 export const setNewPool = (input: {
     address: string
     chainId: number

@@ -41,13 +41,12 @@ model Wallet {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  balances         WalletBalance[]
-  swaps            Swap[]
-  liquidity        LiquidityPosition[]
-  liquidityEvent   LiquidityEvent[]
-  stakingPosition  StakingPosition[]
-  stakingEvent     StakingEvent[]
-  refreshSessions  RefreshSession[]
+  swaps           Swap[]
+  liquidity       LiquidityPosition[]
+  liquidityEvent  LiquidityEvent[]
+  stakingPosition StakingPosition[]
+  stakingEvent    StakingEvent[]
+  refreshSessions RefreshSession[]
 
   @@map("wallet")
 }
@@ -82,6 +81,15 @@ model RefreshSession {
   @@map("refresh_session")
 }
 
+model AuthNonce {
+  nonce     String   @id
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+  @@map("auth_nonce")
+}
+
 model Token {
   id        String   @id @default(cuid())
   address   String
@@ -94,12 +102,11 @@ model Token {
   isActive  Boolean  @default(true)
 
   price           TokenPrice?
-  balances        WalletBalance[]
   stakingFarms    StakingFarm[]
-  poolsAsToken0   Pool[]          @relation("PoolToken0")
-  poolsAsToken1   Pool[]          @relation("PoolToken1")
-  swapsAsTokenIn  Swap[]          @relation("SwapTokenIn")
-  swapsAsTokenOut Swap[]          @relation("SwapTokenOut")
+  poolsAsToken0   Pool[]        @relation("PoolToken0")
+  poolsAsToken1   Pool[]        @relation("PoolToken1")
+  swapsAsTokenIn  Swap[]        @relation("SwapTokenIn")
+  swapsAsTokenOut Swap[]        @relation("SwapTokenOut")
 
   @@unique([chainId, address])
   @@map("tokens")
@@ -116,38 +123,22 @@ model TokenPrice {
   @@map("token_price")
 }
 
-model WalletBalance {
-  id        String   @id @default(cuid())
-  walletId  String
-  tokenId   String
-  amount    Decimal  @db.Decimal(36, 18)
-  updatedAt DateTime @updatedAt
-
-  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
-  token  Token  @relation(fields: [tokenId], references: [id], onDelete: Cascade)
-
-  @@unique([walletId, tokenId])
-  @@index([walletId])
-  @@index([tokenId])
-  @@map("wallet_balances")
-}
-
 model Pool {
-  id        String   @id @default(cuid())
-  address   String
-  chainId   Int
-  token0Id  String
-  token1Id  String
-  feeBps    Int
-  reserve0  Decimal  @db.Decimal(36, 18)
-  reserve1  Decimal  @db.Decimal(36, 18)
-  totalSupply Decimal @db.Decimal(36, 18)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  address     String
+  chainId     Int
+  token0Id    String
+  token1Id    String
+  feeBps      Int
+  reserve0    Decimal  @db.Decimal(36, 18)
+  reserve1    Decimal  @db.Decimal(36, 18)
+  totalSupply Decimal  @db.Decimal(36, 18)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  token0 Token @relation("PoolToken0", fields: [token0Id], references: [id], onDelete: Cascade)
-  token1 Token @relation("PoolToken1", fields: [token1Id], references: [id], onDelete: Cascade)
+  token0 Token @relation("PoolToken0", fields: [token0Id], references: [id], onDelete: Restrict)
+  token1 Token @relation("PoolToken1", fields: [token1Id], references: [id], onDelete: Restrict)
 
   swaps          Swap[]
   liquidity      LiquidityPosition[]
@@ -155,6 +146,7 @@ model Pool {
   stakingFarms   StakingFarm[]
 
   @@unique([chainId, address])
+  @@unique([chainId, token0Id, token1Id, feeBps])
   @@index([token0Id])
   @@index([token1Id])
   @@map("pools")
@@ -175,9 +167,9 @@ model Swap {
   updatedAt  DateTime   @updatedAt
 
   wallet   Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
-  pool     Pool   @relation(fields: [poolId], references: [id], onDelete: Cascade)
-  tokenIn  Token  @relation("SwapTokenIn", fields: [tokenInId], references: [id], onDelete: Cascade)
-  tokenOut Token  @relation("SwapTokenOut", fields: [tokenOutId], references: [id], onDelete: Cascade)
+  pool     Pool   @relation(fields: [poolId], references: [id], onDelete: Restrict)
+  tokenIn  Token  @relation("SwapTokenIn", fields: [tokenInId], references: [id], onDelete: Restrict)
+  tokenOut Token  @relation("SwapTokenOut", fields: [tokenOutId], references: [id], onDelete: Restrict)
 
   @@unique([chainId, txHash])
   @@index([walletId])
@@ -194,7 +186,7 @@ model LiquidityPosition {
   updatedAt     DateTime @updatedAt
 
   wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
-  pool   Pool   @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  pool   Pool   @relation(fields: [poolId], references: [id], onDelete: Restrict)
 
   @@unique([walletId, poolId])
   @@index([walletId])
@@ -215,7 +207,7 @@ model LiquidityEvent {
   createdAt DateTime           @default(now())
 
   wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
-  pool   Pool   @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  pool   Pool   @relation(fields: [poolId], references: [id], onDelete: Restrict)
 
   @@unique([chainId, txHash])
   @@index([walletId])
@@ -232,8 +224,8 @@ model StakingFarm {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  pool        Pool  @relation(fields: [poolId], references: [id], onDelete: Cascade)
-  rewardToken Token @relation(fields: [rewardTokenId], references: [id], onDelete: Cascade)
+  pool        Pool  @relation(fields: [poolId], references: [id], onDelete: Restrict)
+  rewardToken Token @relation(fields: [rewardTokenId], references: [id], onDelete: Restrict)
 
   positions StakingPosition[]
   events    StakingEvent[]

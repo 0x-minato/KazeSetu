@@ -1,4 +1,18 @@
+import { Decimal } from "@prisma/client/runtime/client"
 import z from "zod"
+
+export const nonNegativeDecimalSchema = z
+  .string()
+  .trim()
+  .regex(/^(?:0|[1-9]\d*)(?:\.\d+)?$/, "Invalid decimal format")
+  .refine((value) => {
+    try {
+      const decimal = new Decimal(value)
+      return decimal.gte(0) && decimal.isFinite()
+    } catch {
+      return false
+    }
+  }, "value must be a non-negative finite decimal")
 
 export const ethAddressSchema = z
   .string()

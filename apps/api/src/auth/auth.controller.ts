@@ -19,8 +19,8 @@ const setRefreshTokenCookie = (
     })
 }
 
-export const nonceController = (_req: Request, res: Response) => {
-    const nonce = generateNonce()
+export const nonceController = async (_req: Request, res: Response) => {
+    const nonce = await generateNonce()
     sendSuccess(res, nonce)
 }
 

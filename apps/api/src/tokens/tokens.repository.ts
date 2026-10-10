@@ -39,3 +39,27 @@ export const addNewToken = (
         }
     })
 }
+
+export const updateSupportedToken = (
+    address: string,
+    chainId: number,
+    decimals: number,
+    isActive: boolean,
+    name: string,
+    symbol: string
+) => {
+    return prisma.token.update({
+        where: {
+            chainId_address: {
+                address,
+                chainId,
+            },
+        },
+        data: {
+            decimals,
+            isActive,
+            name,
+            symbol,
+        },
+    })
+}

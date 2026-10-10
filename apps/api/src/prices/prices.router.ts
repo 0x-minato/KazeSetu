@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { getPriceForSupportedToken, getPricesForSupportedTokens, updatePriceForSupportedToken } from './prices.controller'
-import { authenticateAccessToken, requireAdmin } from '../middlewares/authenticate'
+import { authenticateAccessToken, authenticateWorkerOrAdmin } from '../middlewares/authenticate'
 import { validateBody, validateParams, validateQuery } from '../middlewares/validate'
 import { chainIdQuerySchema } from '../dto/common'
 import { tokenAddressParamsSchema } from '../tokens/tokens.dto'
@@ -16,10 +16,8 @@ priceRouter.get('/:address',
     getPriceForSupportedToken
 )
 
-// todo: this is a worker flow, add auth for worker role
 priceRouter.put('/:address',
-    authenticateAccessToken,
-    requireAdmin,
+    authenticateWorkerOrAdmin,
     validateQuery(chainIdQuerySchema), 
     validateParams(tokenAddressParamsSchema),
     validateBody(verifyPriceSchema),

@@ -53,3 +53,4 @@ export const AUTH_REFRESH_RATE_LIMIT_MAX = 30
 export const GLOBAL_RATE_LIMIT_WINDOW_MS = 60_000
 export const GLOBAL_RATE_LIMIT_MAX = 300
 export const ADMIN_ADDRESS = (process.env.ADMIN_ADDRESS ?? "").trim().toLowerCase()
+export const WORKER_API_KEY = (process.env.WORKER_API_KEY ?? "").trim()

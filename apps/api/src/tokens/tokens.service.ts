@@ -1,7 +1,7 @@
 import { conflict, notFound } from "../utils/api-error"
 import { TokenBodyDTO } from "./tokens.dto"
 import { toToken } from "./tokens.mapper"
-import { addNewToken, findSupportedTokenByAddressAndChainId, findSupportedTokens } from "./tokens.repository"
+import { addNewToken, findSupportedTokenByAddressAndChainId, findSupportedTokens, updateSupportedToken } from "./tokens.repository"
 import { ActiveToken, Token } from "./tokens.types"
 
 export const getTokens = async (): Promise<Token[]> => {
@@ -32,7 +32,19 @@ export const addToken = async (tokenDetails: TokenBodyDTO): Promise<Token> => {
         tokenDetails.address,
         tokenDetails.chainId
     )
-    if (duplicateToken) throw conflict("Duplicate token found")
+    if (duplicateToken?.isActive) throw conflict("Duplicate token found")
+
+    if (duplicateToken) {
+        const reactivated = await updateSupportedToken(
+            tokenDetails.address,
+            tokenDetails.chainId,
+            tokenDetails.decimals,
+            tokenDetails.isActive,
+            tokenDetails.name,
+            tokenDetails.symbol,
+        )
+        return toToken(reactivated)
+    }
 
     const token = await addNewToken(
         tokenDetails.address,
