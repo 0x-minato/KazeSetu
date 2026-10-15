@@ -16,6 +16,7 @@ priceRouter.get('/:address',
     getPriceForSupportedToken
 )
 
+// worker will call
 priceRouter.put('/:address',
     authenticateWorkerOrAdmin,
     validateQuery(chainIdQuerySchema), 

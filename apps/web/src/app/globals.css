@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+:root {
+  --bg-canvas: #07090e;
+  --bg-surface: #0c1017;
+  --bg-elevated: #111722;
+  --bg-interactive: #161e2c;
+
+  --text-primary: #f3f5f8;
+  --text-secondary: #94a0b8;
+  --text-muted: #5c667a;
+
+  --accent-wind: #2dd4bf;
+  --accent-indigo: #6366f1;
+  --status-success: #10b981;
+  --status-warning: #f59e0b;
+  --status-danger: #f43f5e;
+
+  --border-hairline: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.16);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  selection-background-color: rgba(45, 212, 191, 0.25);
+}
+
+::selection {
+  background: rgba(45, 212, 191, 0.22);
+  color: #f3f5f8;
+}
+
+.font-display {
+  font-family: var(--font-display), var(--font-sans), sans-serif;
+}
+
+.font-mono-tabular {
+  font-family: var(--font-mono), ui-monospace, SFMono-Regular, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.kaze-grid-bg {
+  background-image:
+    radial-gradient(
+      circle at 16% 0%,
+      rgba(45, 212, 191, 0.09),
+      transparent 42%
+    ),
+    radial-gradient(
+      circle at 88% 8%,
+      rgba(99, 102, 241, 0.08),
+      transparent 38%
+    ),
+    linear-gradient(to right, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 48px 48px, 48px 48px;
+}
+
+/* Custom subtle scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #07090e;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(45, 212, 191, 0.4);
+}
