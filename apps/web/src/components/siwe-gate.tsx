@@ -44,7 +44,7 @@ export function SiweGate() {
               type="button"
               onClick={() => void signInWithEthereum()}
               disabled={stage === "signing"}
-              className="inline-flex items-center gap-2.5 rounded-lg bg-teal-400 px-5 py-2.5 text-sm font-semibold text-slate-950 shadow-[0_0_25px_rgba(45,212,191,0.3)] transition hover:bg-teal-300 disabled:opacity-60"
+              className="inline-flex cursor-pointer items-center gap-2.5 rounded-lg bg-teal-400 px-5 py-2.5 text-sm font-semibold text-slate-950 shadow-[0_0_25px_rgba(45,212,191,0.3)] transition hover:bg-teal-300 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Wallet className="h-4 w-4" />
               {stage === "signing"

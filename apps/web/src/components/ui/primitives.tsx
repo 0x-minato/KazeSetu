@@ -68,7 +68,7 @@ export function CopyAddress({
         type="button"
         onClick={handleCopy}
         title="Copy full address"
-        className="rounded p-0.5 text-slate-500 transition hover:bg-white/5 hover:text-teal-300"
+        className="cursor-pointer rounded p-0.5 text-slate-500 transition hover:bg-white/5 hover:text-teal-300"
       >
         {copied ? (
           <Check className="h-3 w-3 text-emerald-400" />
