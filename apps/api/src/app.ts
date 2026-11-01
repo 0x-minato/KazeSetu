@@ -14,6 +14,8 @@ import { swapRouter } from './swaps/swaps.router.js'
 import { liquidityRouter } from './liquidity/liquidity.router.js'
 import { stakingRouter } from './staking/staking.router.js'
 import { analyticsRouter } from './analytics/analytics.router.js'
+import { vaultRouter } from './vaults/vaults.router.js'
+import { notificationRouter } from './notifications/notifications.router.js'
 
 export const app: Express = express()  
 
@@ -45,5 +47,7 @@ app.use(API_ROUTES.swaps, swapRouter)
 app.use(API_ROUTES.liquidity, liquidityRouter)
 app.use(API_ROUTES.staking, stakingRouter)
 app.use(API_ROUTES.analytics, analyticsRouter)
+app.use(API_ROUTES.vaults, vaultRouter)
+app.use(API_ROUTES.notifications, notificationRouter)
 
 app.use(errorHandler)

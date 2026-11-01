@@ -9,7 +9,9 @@ import {
   KeyRound,
   Layers,
   ShieldAlert,
+  Sliders,
   Sprout,
+  Vault,
   Wrench,
 } from "lucide-react"
 import { api } from "@/lib/api"
@@ -72,12 +74,49 @@ export function AdminView() {
     rewardTokenAddress: "",
   })
 
+  // 6. Register CL Vault (POST /api/vaults)
+  const [vaultCreateForm, setVaultCreateForm] = useState({
+    chainId: 1,
+    address: "",
+    name: "KazeSetu WETH/USDC CL Vault",
+    symbol: "kzWETH-USDC",
+    poolAddress: "",
+    managerAddress: "0xC36442b4a4522E871399CD717aBDD847Ab11FE88",
+    swapRouterAddress: "0xE592427A0AEce92De3Edee1F18E0157C05861564",
+    fee: 3000,
+    tickLower: -887220,
+    tickUpper: 887220,
+    tokenId: "1",
+    liquidity: "0",
+    amount0: "0",
+    amount1: "0",
+    totalSupply: "0",
+  })
+
+  // 7. Sync CL Vault State (PUT /api/vaults/:address)
+  const [vaultSyncForm, setVaultSyncForm] = useState({
+    chainId: 1,
+    address: "",
+    tickLower: -887220,
+    tickUpper: 887220,
+    currentTick: 0,
+    sqrtPriceX96: "79228162514264337593543950336",
+    tokenId: "1",
+    liquidity: "0",
+    amount0: "0",
+    amount1: "0",
+    totalSupply: "0",
+    isPaused: false,
+    isActive: true,
+  })
+
   const invalidateProtocolQueries = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["tokens"] }),
       queryClient.invalidateQueries({ queryKey: ["prices"] }),
       queryClient.invalidateQueries({ queryKey: ["pools"] }),
       queryClient.invalidateQueries({ queryKey: ["staking"] }),
+      queryClient.invalidateQueries({ queryKey: ["vaults"] }),
       queryClient.invalidateQueries({ queryKey: ["analytics"] }),
       queryClient.invalidateQueries({ queryKey: ["portfolio"] }),
     ])
@@ -213,12 +252,83 @@ export function AdminView() {
     }
   }
 
+  const handleCreateVault = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setBanner(null)
+    try {
+      const created = await api.vaults.create({
+        chainId: vaultCreateForm.chainId,
+        address: vaultCreateForm.address.trim(),
+        name: vaultCreateForm.name.trim(),
+        symbol: vaultCreateForm.symbol.trim(),
+        poolAddress: vaultCreateForm.poolAddress.trim(),
+        managerAddress: vaultCreateForm.managerAddress.trim(),
+        swapRouterAddress: vaultCreateForm.swapRouterAddress.trim(),
+        fee: Number(vaultCreateForm.fee),
+        tickLower: Number(vaultCreateForm.tickLower),
+        tickUpper: Number(vaultCreateForm.tickUpper),
+        tokenId: vaultCreateForm.tokenId.trim(),
+        liquidity: vaultCreateForm.liquidity.trim(),
+        amount0: vaultCreateForm.amount0.trim(),
+        amount1: vaultCreateForm.amount1.trim(),
+        totalSupply: vaultCreateForm.totalSupply.trim(),
+      })
+      await invalidateProtocolQueries()
+      setBanner({
+        kind: "ok",
+        text: `Concentrated Liquidity Vault ${created.symbol} (${created.address}) registered on chain ${created.chainId}.`,
+      })
+    } catch (err) {
+      setBanner({
+        kind: "err",
+        text:
+          err instanceof Error ? err.message : "Failed to register CL vault",
+      })
+    }
+  }
+
+  const handleSyncVaultState = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setBanner(null)
+    try {
+      const updated = await api.vaults.updateState(
+        vaultSyncForm.address.trim(),
+        vaultSyncForm.chainId,
+        {
+          tickLower: Number(vaultSyncForm.tickLower),
+          tickUpper: Number(vaultSyncForm.tickUpper),
+          currentTick: Number(vaultSyncForm.currentTick),
+          sqrtPriceX96: vaultSyncForm.sqrtPriceX96.trim(),
+          tokenId: vaultSyncForm.tokenId.trim(),
+          liquidity: vaultSyncForm.liquidity.trim(),
+          amount0: vaultSyncForm.amount0.trim(),
+          amount1: vaultSyncForm.amount1.trim(),
+          totalSupply: vaultSyncForm.totalSupply.trim(),
+          isPaused: vaultSyncForm.isPaused,
+          isActive: vaultSyncForm.isActive,
+        },
+        workerKey,
+      )
+      await invalidateProtocolQueries()
+      setBanner({
+        kind: "ok",
+        text: `Synchronized CL Vault ${updated.symbol} (${updated.address}) state and ticks.`,
+      })
+    } catch (err) {
+      setBanner({
+        kind: "err",
+        text:
+          err instanceof Error ? err.message : "Failed to sync CL vault state",
+      })
+    }
+  }
+
   return (
     <div className="space-y-8">
       <SectionHeader
         eyebrow="Protocol Governance // ADMIN_ADDRESS & Worker Key"
         title="Protocol Operations Console"
-        subtitle="Manage allowlisted tokens, canonical AMM pools, yield farms, and oracle/reserve synchronization."
+        subtitle="Manage allowlisted tokens, canonical AMM pools, Concentrated Liquidity Vaults (clVault.sol), yield farms, and oracle/reserve synchronization."
         right={
           <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#0C1017] px-3 py-1.5 font-mono-tabular text-xs">
             <span className="text-slate-400">JWT Role:</span>
@@ -245,10 +355,12 @@ export function AdminView() {
             <p className="mt-0.5 text-amber-200/80">
               Admin-only endpoints (<code className="font-mono-tabular">POST /api/tokens</code>,{" "}
               <code className="font-mono-tabular">POST /api/pools</code>,{" "}
-              <code className="font-mono-tabular">POST /api/staking</code>) require{" "}
+              <code className="font-mono-tabular">POST /api/staking</code>,{" "}
+              <code className="font-mono-tabular">POST /api/vaults</code>) require{" "}
               <code className="font-mono-tabular">role === &quot;ADMIN&quot;</code>. However,{" "}
-              <code className="font-mono-tabular">PUT /api/prices/:address</code> and{" "}
-              <code className="font-mono-tabular">PUT /api/pools/:address</code> also accept{" "}
+              <code className="font-mono-tabular">PUT /api/prices/:address</code>,{" "}
+              <code className="font-mono-tabular">PUT /api/pools/:address</code>, and{" "}
+              <code className="font-mono-tabular">PUT /api/vaults/:address</code> also accept{" "}
               <code className="font-mono-tabular">x-worker-key</code> below.
             </p>
           </div>
@@ -266,7 +378,7 @@ export function AdminView() {
             </div>
             <div className="text-[11px] text-slate-400">
               Used for <code className="font-mono-tabular">authenticateWorkerOrAdmin</code>{" "}
-              routes (Price Oracle PUT & Pool Reserves PUT).
+              routes (Price Oracle PUT, Pool Reserves PUT, and CL Vault State PUT).
             </div>
           </div>
         </div>
@@ -394,7 +506,7 @@ export function AdminView() {
 
           <button
             type="submit"
-            className="w-full rounded-lg bg-teal-400 px-4 py-2 font-mono-tabular text-xs font-semibold text-slate-950 transition hover:bg-teal-300"
+            className="w-full cursor-pointer rounded-lg bg-teal-400 px-4 py-2 font-mono-tabular text-xs font-semibold text-slate-950 transition hover:bg-teal-300"
           >
             Allowlist Token
           </button>
@@ -468,7 +580,7 @@ export function AdminView() {
 
           <button
             type="submit"
-            className="w-full rounded-lg bg-indigo-500 px-4 py-2 font-mono-tabular text-xs font-semibold text-white transition hover:bg-indigo-400"
+            className="w-full cursor-pointer rounded-lg bg-indigo-500 px-4 py-2 font-mono-tabular text-xs font-semibold text-white transition hover:bg-indigo-400"
           >
             Update Cached USD Price
           </button>
@@ -608,7 +720,7 @@ export function AdminView() {
 
           <button
             type="submit"
-            className="w-full rounded-lg bg-teal-400 px-4 py-2 font-mono-tabular text-xs font-semibold text-slate-950 transition hover:bg-teal-300"
+            className="w-full cursor-pointer rounded-lg bg-teal-400 px-4 py-2 font-mono-tabular text-xs font-semibold text-slate-950 transition hover:bg-teal-300"
           >
             Create Canonical Pool
           </button>
@@ -724,7 +836,7 @@ export function AdminView() {
 
           <button
             type="submit"
-            className="w-full rounded-lg bg-indigo-500 px-4 py-2 font-mono-tabular text-xs font-semibold text-white transition hover:bg-indigo-400"
+            className="w-full cursor-pointer rounded-lg bg-indigo-500 px-4 py-2 font-mono-tabular text-xs font-semibold text-white transition hover:bg-indigo-400"
           >
             Sync Reserves & Supply
           </button>
@@ -813,9 +925,399 @@ export function AdminView() {
 
           <button
             type="submit"
-            className="rounded-lg bg-emerald-400 px-5 py-2 font-mono-tabular text-xs font-semibold text-slate-950 transition hover:bg-emerald-300"
+            className="cursor-pointer rounded-lg bg-emerald-400 px-5 py-2 font-mono-tabular text-xs font-semibold text-slate-950 transition hover:bg-emerald-300"
           >
             Register Staking Farm
+          </button>
+        </form>
+
+        {/* 6. Register Concentrated Liquidity Vault (POST /api/vaults) */}
+        <form
+          onSubmit={handleCreateVault}
+          className="space-y-4 rounded-xl border border-white/[0.08] bg-[#0C1017] p-6"
+        >
+          <div className="flex items-center gap-2 border-b border-white/[0.07] pb-3">
+            <Vault className="h-4 w-4 text-teal-400" />
+            <h3 className="font-display text-sm font-semibold text-slate-100">
+              6. Register CL Vault (POST /api/vaults)
+            </h3>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="block font-mono-tabular text-[11px] text-slate-400">
+                Chain
+              </label>
+              <select
+                value={vaultCreateForm.chainId}
+                onChange={(e) =>
+                  setVaultCreateForm({
+                    ...vaultCreateForm,
+                    chainId: Number(e.target.value),
+                  })
+                }
+                className="mt-1 w-full rounded-lg border border-white/10 bg-[#07090E] px-3 py-2 font-mono-tabular text-xs text-slate-100"
+              >
+                {SUPPORTED_CHAINS.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({c.id})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block font-mono-tabular text-[11px] text-slate-400">
+                Fee Tier (500 / 3000 / 10000)
+              </label>
+              <input
+                type="number"
+                value={vaultCreateForm.fee}
+                onChange={(e) =>
+                  setVaultCreateForm({
+                    ...vaultCreateForm,
+                    fee: Number(e.target.value),
+                  })
+                }
+                className="mt-1 w-full rounded-lg border border-white/10 bg-[#07090E] px-3 py-2 font-mono-tabular text-xs text-slate-100"
+              />
+            </div>
+            <div>
+              <label className="block font-mono-tabular text-[11px] text-slate-400">
+                Vault Name
+              </label>
+              <input
+                type="text"
+                required
+                value={vaultCreateForm.name}
+                onChange={(e) =>
+                  setVaultCreateForm({
+                    ...vaultCreateForm,
+                    name: e.target.value,
+                  })
+                }
+                className="mt-1 w-full rounded-lg border border-white/10 bg-[#07090E] px-3 py-2 text-xs text-slate-100"
+              />
+            </div>
+            <div>
+              <label className="block font-mono-tabular text-[11px] text-slate-400">
+                Share Symbol
+              </label>
+              <input
+                type="text"
+                required
+                value={vaultCreateForm.symbol}
+                onChange={(e) =>
+                  setVaultCreateForm({
+                    ...vaultCreateForm,
+                    symbol: e.target.value,
+                  })
+                }
+                className="mt-1 w-full rounded-lg border border-white/10 bg-[#07090E] px-3 py-2 font-mono-tabular text-xs text-slate-100"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block font-mono-tabular text-[11px] text-slate-400">
+                Vault Contract Address (KazeClVault)
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="0x…"
+                value={vaultCreateForm.address}
+                onChange={(e) =>
+                  setVaultCreateForm({
+                    ...vaultCreateForm,
+                    address: e.target.value,
+                  })
+                }
+                className="mt-1 w-full rounded-lg border border-white/10 bg-[#07090E] px-3 py-2 font-mono-tabular text-xs text-slate-100"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block font-mono-tabular text-[11px] text-slate-400">
+                Underlying Pool Address
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="0x…"
+                value={vaultCreateForm.poolAddress}
+                onChange={(e) =>
+                  setVaultCreateForm({
+                    ...vaultCreateForm,
+                    poolAddress: e.target.value,
+                  })
+                }
+                className="mt-1 w-full rounded-lg border border-white/10 bg-[#07090E] px-3 py-2 font-mono-tabular text-xs text-slate-100"
+              />
+            </div>
+            <div>
+              <label className="block font-mono-tabular text-[11px] text-slate-400">
+                PositionManager Address
+              </label>
+              <input
+                type="text"
+                required
+                value={vaultCreateForm.managerAddress}
+                onChange={(e) =>
+                  setVaultCreateForm({
+                    ...vaultCreateForm,
+                    managerAddress: e.target.value,
+                  })
+                }
+                className="mt-1 w-full rounded-lg border border-white/10 bg-[#07090E] px-3 py-2 font-mono-tabular text-xs text-slate-100"
+              />
+            </div>
+            <div>
+              <label className="block font-mono-tabular text-[11px] text-slate-400">
+                SwapRouter Address
+              </label>
+              <input
+                type="text"
+                required
+                value={vaultCreateForm.swapRouterAddress}
+                onChange={(e) =>
+                  setVaultCreateForm({
+                    ...vaultCreateForm,
+                    swapRouterAddress: e.target.value,
+                  })
+                }
+                className="mt-1 w-full rounded-lg border border-white/10 bg-[#07090E] px-3 py-2 font-mono-tabular text-xs text-slate-100"
+              />
+            </div>
+            <div>
+              <label className="block font-mono-tabular text-[11px] text-slate-400">
+                Tick Lower (int24)
+              </label>
+              <input
+                type="number"
+                value={vaultCreateForm.tickLower}
+                onChange={(e) =>
+                  setVaultCreateForm({
+                    ...vaultCreateForm,
+                    tickLower: Number(e.target.value),
+                  })
+                }
+                className="mt-1 w-full rounded-lg border border-white/10 bg-[#07090E] px-3 py-2 font-mono-tabular text-xs text-slate-100"
+              />
+            </div>
+            <div>
+              <label className="block font-mono-tabular text-[11px] text-slate-400">
+                Tick Upper (int24)
+              </label>
+              <input
+                type="number"
+                value={vaultCreateForm.tickUpper}
+                onChange={(e) =>
+                  setVaultCreateForm({
+                    ...vaultCreateForm,
+                    tickUpper: Number(e.target.value),
+                  })
+                }
+                className="mt-1 w-full rounded-lg border border-white/10 bg-[#07090E] px-3 py-2 font-mono-tabular text-xs text-slate-100"
+              />
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            className="w-full cursor-pointer rounded-lg bg-teal-400 px-4 py-2 font-mono-tabular text-xs font-semibold text-slate-950 transition hover:bg-teal-300"
+          >
+            Register CL Vault
+          </button>
+        </form>
+
+        {/* 7. Sync Concentrated Liquidity Vault State (PUT /api/vaults/:address) */}
+        <form
+          onSubmit={handleSyncVaultState}
+          className="space-y-4 rounded-xl border border-white/[0.08] bg-[#0C1017] p-6"
+        >
+          <div className="flex items-center gap-2 border-b border-white/[0.07] pb-3">
+            <Sliders className="h-4 w-4 text-indigo-400" />
+            <h3 className="font-display text-sm font-semibold text-slate-100">
+              7. Sync CL Vault State (PUT /api/vaults/:address)
+            </h3>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="block font-mono-tabular text-[11px] text-slate-400">
+                Chain
+              </label>
+              <select
+                value={vaultSyncForm.chainId}
+                onChange={(e) =>
+                  setVaultSyncForm({
+                    ...vaultSyncForm,
+                    chainId: Number(e.target.value),
+                  })
+                }
+                className="mt-1 w-full rounded-lg border border-white/10 bg-[#07090E] px-3 py-2 font-mono-tabular text-xs text-slate-100"
+              >
+                {SUPPORTED_CHAINS.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({c.id})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block font-mono-tabular text-[11px] text-slate-400">
+                Vault Address
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="0x…"
+                value={vaultSyncForm.address}
+                onChange={(e) =>
+                  setVaultSyncForm({
+                    ...vaultSyncForm,
+                    address: e.target.value,
+                  })
+                }
+                className="mt-1 w-full rounded-lg border border-white/10 bg-[#07090E] px-3 py-2 font-mono-tabular text-xs text-slate-100"
+              />
+            </div>
+            <div>
+              <label className="block font-mono-tabular text-[11px] text-slate-400">
+                Tick Lower
+              </label>
+              <input
+                type="number"
+                value={vaultSyncForm.tickLower}
+                onChange={(e) =>
+                  setVaultSyncForm({
+                    ...vaultSyncForm,
+                    tickLower: Number(e.target.value),
+                  })
+                }
+                className="mt-1 w-full rounded-lg border border-white/10 bg-[#07090E] px-3 py-2 font-mono-tabular text-xs text-slate-100"
+              />
+            </div>
+            <div>
+              <label className="block font-mono-tabular text-[11px] text-slate-400">
+                Tick Upper
+              </label>
+              <input
+                type="number"
+                value={vaultSyncForm.tickUpper}
+                onChange={(e) =>
+                  setVaultSyncForm({
+                    ...vaultSyncForm,
+                    tickUpper: Number(e.target.value),
+                  })
+                }
+                className="mt-1 w-full rounded-lg border border-white/10 bg-[#07090E] px-3 py-2 font-mono-tabular text-xs text-slate-100"
+              />
+            </div>
+            <div>
+              <label className="block font-mono-tabular text-[11px] text-slate-400">
+                Current Active Tick
+              </label>
+              <input
+                type="number"
+                value={vaultSyncForm.currentTick}
+                onChange={(e) =>
+                  setVaultSyncForm({
+                    ...vaultSyncForm,
+                    currentTick: Number(e.target.value),
+                  })
+                }
+                className="mt-1 w-full rounded-lg border border-white/10 bg-[#07090E] px-3 py-2 font-mono-tabular text-xs text-slate-100"
+              />
+            </div>
+            <div>
+              <label className="block font-mono-tabular text-[11px] text-slate-400">
+                Liquidity (L)
+              </label>
+              <input
+                type="text"
+                required
+                value={vaultSyncForm.liquidity}
+                onChange={(e) =>
+                  setVaultSyncForm({
+                    ...vaultSyncForm,
+                    liquidity: e.target.value,
+                  })
+                }
+                className="mt-1 w-full rounded-lg border border-white/10 bg-[#07090E] px-3 py-2 font-mono-tabular text-xs text-slate-100"
+              />
+            </div>
+            <div>
+              <label className="block font-mono-tabular text-[11px] text-slate-400">
+                Amount 0
+              </label>
+              <input
+                type="text"
+                required
+                value={vaultSyncForm.amount0}
+                onChange={(e) =>
+                  setVaultSyncForm({
+                    ...vaultSyncForm,
+                    amount0: e.target.value,
+                  })
+                }
+                className="mt-1 w-full rounded-lg border border-white/10 bg-[#07090E] px-3 py-2 font-mono-tabular text-xs text-slate-100"
+              />
+            </div>
+            <div>
+              <label className="block font-mono-tabular text-[11px] text-slate-400">
+                Amount 1
+              </label>
+              <input
+                type="text"
+                required
+                value={vaultSyncForm.amount1}
+                onChange={(e) =>
+                  setVaultSyncForm({
+                    ...vaultSyncForm,
+                    amount1: e.target.value,
+                  })
+                }
+                className="mt-1 w-full rounded-lg border border-white/10 bg-[#07090E] px-3 py-2 font-mono-tabular text-xs text-slate-100"
+              />
+            </div>
+            <div>
+              <label className="block font-mono-tabular text-[11px] text-slate-400">
+                Total Shares Supply
+              </label>
+              <input
+                type="text"
+                required
+                value={vaultSyncForm.totalSupply}
+                onChange={(e) =>
+                  setVaultSyncForm({
+                    ...vaultSyncForm,
+                    totalSupply: e.target.value,
+                  })
+                }
+                className="mt-1 w-full rounded-lg border border-white/10 bg-[#07090E] px-3 py-2 font-mono-tabular text-xs text-slate-100"
+              />
+            </div>
+            <div className="flex items-end pb-2">
+              <label className="inline-flex cursor-pointer items-center gap-2 font-mono-tabular text-xs text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={vaultSyncForm.isPaused}
+                  onChange={(e) =>
+                    setVaultSyncForm({
+                      ...vaultSyncForm,
+                      isPaused: e.target.checked,
+                    })
+                  }
+                  className="rounded border-white/20 bg-[#07090E]"
+                />
+                Mark Vault Paused
+              </label>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            className="w-full cursor-pointer rounded-lg bg-indigo-500 px-4 py-2 font-mono-tabular text-xs font-semibold text-white transition hover:bg-indigo-400"
+          >
+            Sync CL Vault State
           </button>
         </form>
       </div>

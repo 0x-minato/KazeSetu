@@ -1,0 +1,536 @@
+// Shared ABIs derived directly from contracts/src/vault/clVault.sol,
+// contracts/src/vault/interfaces/*, and contracts/src/interfaces/uniswapV3.sol
+
+export const KAZE_CL_VAULT_ABI = [
+  // Initialization & Configuration
+  {
+    type: "function",
+    name: "initialize",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "admin", type: "address" },
+      { name: "name", type: "string" },
+      { name: "symbol", type: "string" },
+      { name: "manager_", type: "address" },
+      { name: "swapRouter_", type: "address" },
+      { name: "token0_", type: "address" },
+      { name: "token1_", type: "address" },
+      { name: "fee_", type: "uint24" },
+      { name: "pool_", type: "address" },
+      { name: "tickLower_", type: "int24" },
+      { name: "tickUpper_", type: "int24" },
+    ],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "manager",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "address" }],
+  },
+  {
+    type: "function",
+    name: "swapRouter",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "address" }],
+  },
+  {
+    type: "function",
+    name: "token0",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "address" }],
+  },
+  {
+    type: "function",
+    name: "token1",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "address" }],
+  },
+  {
+    type: "function",
+    name: "fee",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint24" }],
+  },
+  {
+    type: "function",
+    name: "position",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [
+      { name: "pool", type: "address" },
+      { name: "tick_lower", type: "int24" },
+      { name: "tick_upper", type: "int24" },
+      { name: "token_id", type: "uint48" },
+    ],
+  },
+  // ERC20Upgradeable views
+  {
+    type: "function",
+    name: "name",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "string" }],
+  },
+  {
+    type: "function",
+    name: "symbol",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "string" }],
+  },
+  {
+    type: "function",
+    name: "decimals",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint8" }],
+  },
+  {
+    type: "function",
+    name: "totalSupply",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "balanceOf",
+    stateMutability: "view",
+    inputs: [{ name: "account", type: "address" }],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  // KazeCommon (Pausable & AccessControl)
+  {
+    type: "function",
+    name: "paused",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "bool" }],
+  },
+  {
+    type: "function",
+    name: "GOVERNOR_ROLE",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "bytes32" }],
+  },
+  {
+    type: "function",
+    name: "hasRole",
+    stateMutability: "view",
+    inputs: [
+      { name: "role", type: "bytes32" },
+      { name: "account", type: "address" },
+    ],
+    outputs: [{ name: "", type: "bool" }],
+  },
+  {
+    type: "function",
+    name: "pause",
+    stateMutability: "nonpayable",
+    inputs: [],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "unpause",
+    stateMutability: "nonpayable",
+    inputs: [],
+    outputs: [],
+  },
+  // IClVaultActions
+  {
+    type: "function",
+    name: "deposit",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "amount0", type: "uint256" },
+      { name: "amount1", type: "uint256" },
+      { name: "amountOutMin", type: "uint256" },
+      { name: "receiver", type: "address" },
+    ],
+    outputs: [{ name: "shares", type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "withdraw",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "shares", type: "uint256" },
+      { name: "receiver", type: "address" },
+    ],
+    outputs: [
+      {
+        name: "myPosition",
+        type: "tuple",
+        components: [
+          { name: "liquidity", type: "uint256" },
+          { name: "amount0", type: "uint256" },
+          { name: "amount1", type: "uint256" },
+        ],
+      },
+    ],
+  },
+  {
+    type: "function",
+    name: "convert_to_assets",
+    stateMutability: "view",
+    inputs: [
+      { name: "shares", type: "uint256" },
+      { name: "total_liquidity", type: "uint256" },
+    ],
+    outputs: [{ name: "liquidity", type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "convert_to_shares",
+    stateMutability: "view",
+    inputs: [
+      { name: "liquidity", type: "uint256" },
+      { name: "total_liquidity", type: "uint256" },
+    ],
+    outputs: [{ name: "shares", type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "handle_fees",
+    stateMutability: "nonpayable",
+    inputs: [],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "rebalance",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "new_lower_tick", type: "int24" },
+      { name: "new_upper_tick", type: "int24" },
+      { name: "amount_out_min", type: "uint256" },
+    ],
+    outputs: [
+      { name: "new_liquidity", type: "uint256" },
+      { name: "amount0_used", type: "uint256" },
+      { name: "amount1_used", type: "uint256" },
+    ],
+  },
+  // IClVaultEvents (note: non-indexed parameters matching IClVaultEvents.sol)
+  {
+    type: "event",
+    name: "Deposit",
+    anonymous: false,
+    inputs: [
+      { name: "sender", type: "address", indexed: false },
+      { name: "amount0Used", type: "uint256", indexed: false },
+      { name: "amount1Used", type: "uint256", indexed: false },
+      { name: "shares", type: "uint256", indexed: false },
+      { name: "receiver", type: "address", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "Withdraw",
+    anonymous: false,
+    inputs: [
+      { name: "sender", type: "address", indexed: false },
+      { name: "amount0Withdraw", type: "uint256", indexed: false },
+      { name: "amount1Withdraw", type: "uint256", indexed: false },
+      { name: "liquidity", type: "uint256", indexed: false },
+      { name: "receiver", type: "address", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "HandleFees",
+    anonymous: false,
+    inputs: [
+      { name: "liquidityAdded", type: "uint256", indexed: false },
+      { name: "amount0Used", type: "uint256", indexed: false },
+      { name: "amount1Used", type: "uint256", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "Rebalance",
+    anonymous: false,
+    inputs: [
+      { name: "old_lower_tick", type: "int24", indexed: false },
+      { name: "old_upper_tick", type: "int24", indexed: false },
+      { name: "new_lower_tick", type: "int24", indexed: false },
+      { name: "new_upper_tick", type: "int24", indexed: false },
+      { name: "new_liquidity", type: "uint256", indexed: false },
+      { name: "amount0_used", type: "uint256", indexed: false },
+      { name: "amount1_used", type: "uint256", indexed: false },
+    ],
+  },
+] as const
+
+export const UNISWAP_V3_POOL_ABI = [
+  {
+    type: "function",
+    name: "slot0",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [
+      { name: "sqrtPriceX96", type: "uint160" },
+      { name: "tick", type: "int24" },
+      { name: "observationIndex", type: "uint16" },
+      { name: "observationCardinality", type: "uint16" },
+      { name: "observationCardinalityNext", type: "uint16" },
+      { name: "feeProtocol", type: "uint8" },
+      { name: "unlocked", type: "bool" },
+    ],
+  },
+  {
+    type: "function",
+    name: "liquidity",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint128" }],
+  },
+  {
+    type: "function",
+    name: "token0",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "address" }],
+  },
+  {
+    type: "function",
+    name: "token1",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "address" }],
+  },
+  {
+    type: "function",
+    name: "fee",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint24" }],
+  },
+  {
+    type: "function",
+    name: "tickSpacing",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "int24" }],
+  },
+  {
+    type: "event",
+    name: "Swap",
+    anonymous: false,
+    inputs: [
+      { name: "sender", type: "address", indexed: true },
+      { name: "recipient", type: "address", indexed: true },
+      { name: "amount0", type: "int256", indexed: false },
+      { name: "amount1", type: "int256", indexed: false },
+      { name: "sqrtPriceX96", type: "uint160", indexed: false },
+      { name: "liquidity", type: "uint128", indexed: false },
+      { name: "tick", type: "int24", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "Mint",
+    anonymous: false,
+    inputs: [
+      { name: "sender", type: "address", indexed: false },
+      { name: "owner", type: "address", indexed: true },
+      { name: "tickLower", type: "int24", indexed: true },
+      { name: "tickUpper", type: "int24", indexed: true },
+      { name: "amount", type: "uint128", indexed: false },
+      { name: "amount0", type: "uint256", indexed: false },
+      { name: "amount1", type: "uint256", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "Burn",
+    anonymous: false,
+    inputs: [
+      { name: "owner", type: "address", indexed: true },
+      { name: "tickLower", type: "int24", indexed: true },
+      { name: "tickUpper", type: "int24", indexed: true },
+      { name: "amount", type: "uint128", indexed: false },
+      { name: "amount0", type: "uint256", indexed: false },
+      { name: "amount1", type: "uint256", indexed: false },
+    ],
+  },
+] as const
+
+export const NONFUNGIBLE_POSITION_MANAGER_ABI = [
+  {
+    type: "function",
+    name: "positions",
+    stateMutability: "view",
+    inputs: [{ name: "tokenId", type: "uint256" }],
+    outputs: [
+      { name: "nonce", type: "uint96" },
+      { name: "operator", type: "address" },
+      { name: "token0", type: "address" },
+      { name: "token1", type: "address" },
+      { name: "fee", type: "uint24" },
+      { name: "tickLower", type: "int24" },
+      { name: "tickUpper", type: "int24" },
+      { name: "liquidity", type: "uint128" },
+      { name: "feeGrowthInside0LastX128", type: "uint256" },
+      { name: "feeGrowthInside1LastX128", type: "uint256" },
+      { name: "tokensOwed0", type: "uint128" },
+      { name: "tokensOwed1", type: "uint128" },
+    ],
+  },
+] as const
+
+export const UNISWAP_V3_SWAP_ROUTER_ABI = [
+  {
+    type: "function",
+    name: "exactInputSingle",
+    stateMutability: "payable",
+    inputs: [
+      {
+        name: "params",
+        type: "tuple",
+        components: [
+          { name: "tokenIn", type: "address" },
+          { name: "tokenOut", type: "address" },
+          { name: "fee", type: "uint24" },
+          { name: "recipient", type: "address" },
+          { name: "deadline", type: "uint256" },
+          { name: "amountIn", type: "uint256" },
+          { name: "amountOutMinimum", type: "uint256" },
+          { name: "sqrtPriceLimitX96", type: "uint160" },
+        ],
+      },
+    ],
+    outputs: [{ name: "amountOut", type: "uint256" }],
+  },
+] as const
+
+export const ERC20_ABI = [
+  {
+    type: "function",
+    name: "name",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "string" }],
+  },
+  {
+    type: "function",
+    name: "symbol",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "string" }],
+  },
+  {
+    type: "function",
+    name: "decimals",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint8" }],
+  },
+  {
+    type: "function",
+    name: "totalSupply",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "balanceOf",
+    stateMutability: "view",
+    inputs: [{ name: "account", type: "address" }],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "allowance",
+    stateMutability: "view",
+    inputs: [
+      { name: "owner", type: "address" },
+      { name: "spender", type: "address" },
+    ],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "approve",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "spender", type: "address" },
+      { name: "amount", type: "uint256" },
+    ],
+    outputs: [{ name: "", type: "bool" }],
+  },
+] as const
+
+export const STAKING_FARM_ABI = [
+  {
+    type: "function",
+    name: "stake",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "amount", type: "uint256" }],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "unstake",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "amount", type: "uint256" }],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "claim",
+    stateMutability: "nonpayable",
+    inputs: [],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "balanceOf",
+    stateMutability: "view",
+    inputs: [{ name: "account", type: "address" }],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "earned",
+    stateMutability: "view",
+    inputs: [{ name: "account", type: "address" }],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    type: "event",
+    name: "Staked",
+    anonymous: false,
+    inputs: [
+      { name: "user", type: "address", indexed: true },
+      { name: "amount", type: "uint256", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "Unstaked",
+    anonymous: false,
+    inputs: [
+      { name: "user", type: "address", indexed: true },
+      { name: "amount", type: "uint256", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "RewardPaid",
+    anonymous: false,
+    inputs: [
+      { name: "user", type: "address", indexed: true },
+      { name: "reward", type: "uint256", indexed: false },
+    ],
+  },
+] as const

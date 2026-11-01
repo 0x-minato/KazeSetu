@@ -1,23 +1,51 @@
 "use client"
 
 import React, { useMemo, useState } from "react"
-import { useQuery } from "@tanstack/react-query"
-import { Compass, RefreshCw, Search, SlidersHorizontal } from "lucide-react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import {
+  AlertTriangle,
+  ArrowLeftRight,
+  CheckCircle2,
+  Compass,
+  Flame,
+  RefreshCw,
+  Search,
+  SlidersHorizontal,
+} from "lucide-react"
 import { api } from "@/lib/api"
 import { SUPPORTED_CHAINS } from "@/lib/chains"
 import { formatAmount, formatBps, formatUsd } from "@/lib/format"
+import { approveErc20, executeExactInputSingleSwap } from "@/lib/onchain"
 import type { Pool } from "@/lib/types"
+import { useAuth } from "@/context/auth-context"
 import {
   ChainBadge,
   CopyAddress,
   SectionHeader,
   TokenPairGlyph,
+  TxHashLink,
 } from "@/components/ui/primitives"
 
 export function PoolsView() {
+  const { address } = useAuth()
+  const queryClient = useQueryClient()
+
   const [search, setSearch] = useState("")
   const [chainFilter, setChainFilter] = useState<number | "ALL">("ALL")
   const [selectedPoolKey, setSelectedPoolKey] = useState<string | null>(null)
+
+  // On-Chain Swap Executor state
+  const [zeroForOne, setZeroForOne] = useState(true)
+  const [swapRouterAddress, setSwapRouterAddress] = useState(
+    "0xE592427A0AEce92De3Edee1F18E0157C05861564",
+  )
+  const [swapAmountIn, setSwapAmountIn] = useState("")
+  const [swapAmountOutMin, setSwapAmountOutMin] = useState("0")
+  const [swapTxState, setSwapTxState] = useState<{
+    status: "submitting" | "confirmed" | "error"
+    message: string
+    txHash?: string
+  } | null>(null)
 
   const poolsQuery = useQuery({
     queryKey: ["pools", "list"],
@@ -105,12 +133,96 @@ export function PoolsView() {
     enabled: !!selectedPool,
   })
 
+  const tokenIn = selectedPool
+    ? zeroForOne
+      ? selectedPool.token0
+      : selectedPool.token1
+    : null
+  const tokenOut = selectedPool
+    ? zeroForOne
+      ? selectedPool.token1
+      : selectedPool.token0
+    : null
+
+  const estimatedOut = useMemo(() => {
+    if (!selectedPool || !swapAmountIn) return "0"
+    const amt = Number(swapAmountIn)
+    if (!Number.isFinite(amt) || amt <= 0) return "0"
+    const rate = zeroForOne ? selectedPool.spot1Per0 : selectedPool.spot0Per1
+    const feeFactor = 1 - selectedPool.feeBps / 10_000
+    return (amt * rate * feeFactor).toFixed(6)
+  }, [selectedPool, swapAmountIn, zeroForOne])
+
+  const handleApproveTokenIn = async () => {
+    if (!selectedPool || !tokenIn) return
+    setSwapTxState({
+      status: "submitting",
+      message: `Approving ${tokenIn.symbol} for SwapRouter...`,
+    })
+    try {
+      const res = await approveErc20(
+        tokenIn.address,
+        swapRouterAddress.trim(),
+        swapAmountIn || "1000000",
+        tokenIn.decimals,
+      )
+      setSwapTxState({
+        status: "confirmed",
+        message: `Approved ${tokenIn.symbol} for swap router.`,
+        txHash: res.hash,
+      })
+    } catch (err) {
+      setSwapTxState({
+        status: "error",
+        message:
+          err instanceof Error ? err.message : "Failed to approve tokenIn",
+      })
+    }
+  }
+
+  const handleExecuteSwap = async () => {
+    if (!selectedPool || !tokenIn || !tokenOut) return
+    setSwapTxState({
+      status: "submitting",
+      message: `Executing exactInputSingle (${tokenIn.symbol} → ${tokenOut.symbol})...`,
+    })
+    try {
+      const res = await executeExactInputSingleSwap({
+        routerAddress: swapRouterAddress.trim(),
+        tokenIn: tokenIn.address,
+        tokenOut: tokenOut.address,
+        fee: selectedPool.feeBps * 100,
+        recipient: address ?? undefined,
+        amountInRaw: swapAmountIn,
+        decimalsIn: tokenIn.decimals,
+        amountOutMinRaw: swapAmountOutMin || "0",
+        decimalsOut: tokenOut.decimals,
+      })
+      setSwapTxState({
+        status: "confirmed",
+        message: `Swap confirmed on-chain.`,
+        txHash: res.hash,
+      })
+      void poolsQuery.refetch()
+      void queryClient.invalidateQueries({ queryKey: ["swaps"] })
+      void queryClient.invalidateQueries({ queryKey: ["notifications"] })
+    } catch (err) {
+      setSwapTxState({
+        status: "error",
+        message:
+          err instanceof Error
+            ? err.message
+            : "Swap transaction failed or reverted",
+      })
+    }
+  }
+
   return (
     <div className="space-y-8">
       <SectionHeader
         eyebrow="AMM Registry // Constant Product & Custom Fee Tiers"
         title="Liquidity Pools Explorer"
-        subtitle="Inspect on-chain reserve depth, LP total supply, canonical token ordering, and implied spot ratios across all supported chains."
+        subtitle="Inspect on-chain reserve depth, LP total supply, canonical token ordering, and execute direct EIP-1193 swaps across supported chains."
         right={
           <button
             type="button"
@@ -118,7 +230,7 @@ export function PoolsView() {
               void poolsQuery.refetch()
               void pricesQuery.refetch()
             }}
-            className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-[#0C1017] px-3.5 py-2 font-mono-tabular text-xs text-slate-200 transition hover:border-teal-400/40 hover:text-teal-300"
+            className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-white/10 bg-[#0C1017] px-3.5 py-2 font-mono-tabular text-xs text-slate-200 transition hover:border-teal-400/40 hover:text-teal-300"
           >
             <RefreshCw
               className={`h-3.5 w-3.5 ${
@@ -151,7 +263,7 @@ export function PoolsView() {
           <button
             type="button"
             onClick={() => setChainFilter("ALL")}
-            className={`rounded-md px-2.5 py-1.5 font-mono-tabular text-xs transition ${
+            className={`cursor-pointer rounded-md px-2.5 py-1.5 font-mono-tabular text-xs transition ${
               chainFilter === "ALL"
                 ? "bg-teal-400 text-slate-950 font-semibold"
                 : "border border-white/10 bg-[#07090E] text-slate-300 hover:border-white/20"
@@ -164,7 +276,7 @@ export function PoolsView() {
               key={c.id}
               type="button"
               onClick={() => setChainFilter(c.id)}
-              className={`rounded-md px-2.5 py-1.5 font-mono-tabular text-xs transition ${
+              className={`cursor-pointer rounded-md px-2.5 py-1.5 font-mono-tabular text-xs transition ${
                 chainFilter === c.id
                   ? "bg-teal-400 text-slate-950 font-semibold"
                   : "border border-white/10 bg-[#07090E] text-slate-300 hover:border-white/20"
@@ -279,11 +391,11 @@ export function PoolsView() {
           )}
         </div>
 
-        {/* Pool Depth & Telemetry Inspector */}
+        {/* Pool Depth, On-Chain Swap Executor & Telemetry Inspector */}
         <div className="rounded-xl border border-white/[0.08] bg-[#0C1017] p-6 lg:col-span-4">
           {!selectedPool ? (
             <div className="py-12 text-center text-xs text-slate-500">
-              Select a pool row to inspect contract reserves and LP supply.
+              Select a pool row to inspect contract reserves and execute swaps.
             </div>
           ) : (
             <div className="space-y-5">
@@ -330,6 +442,119 @@ export function PoolsView() {
                   </div>
                 </div>
               </div>
+
+              {/* On-Chain Swap Executor Card */}
+              {tokenIn && tokenOut && (
+                <div className="rounded-lg border border-teal-400/25 bg-[#07090E] p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono-tabular text-[11px] font-semibold tracking-wider text-teal-300 uppercase">
+                      On-Chain Swap Executor
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setZeroForOne((prev) => !prev)}
+                      className="inline-flex cursor-pointer items-center gap-1 rounded border border-white/10 bg-[#0C1017] px-2 py-1 font-mono-tabular text-[10px] text-slate-300 transition hover:border-teal-400/40 hover:text-teal-300"
+                    >
+                      <ArrowLeftRight className="h-3 w-3" />
+                      {tokenIn.symbol} → {tokenOut.symbol}
+                    </button>
+                  </div>
+
+                  <div>
+                    <label className="block font-mono-tabular text-[10px] text-slate-400">
+                      SwapRouter Address
+                    </label>
+                    <input
+                      type="text"
+                      value={swapRouterAddress}
+                      onChange={(e) => setSwapRouterAddress(e.target.value)}
+                      className="mt-1 w-full rounded border border-white/10 bg-[#0C1017] px-2.5 py-1.5 font-mono-tabular text-[11px] text-slate-200 focus:border-teal-400/50 focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block font-mono-tabular text-[10px] text-slate-400">
+                        Amount In ({tokenIn.symbol})
+                      </label>
+                      <input
+                        type="text"
+                        value={swapAmountIn}
+                        onChange={(e) => setSwapAmountIn(e.target.value)}
+                        placeholder="0.0"
+                        className="mt-1 w-full rounded border border-white/10 bg-[#0C1017] px-2.5 py-1.5 font-mono-tabular text-xs text-slate-100 focus:border-teal-400/50 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-mono-tabular text-[10px] text-slate-400">
+                        Min Out ({tokenOut.symbol})
+                      </label>
+                      <input
+                        type="text"
+                        value={swapAmountOutMin}
+                        onChange={(e) => setSwapAmountOutMin(e.target.value)}
+                        placeholder="0"
+                        className="mt-1 w-full rounded border border-white/10 bg-[#0C1017] px-2.5 py-1.5 font-mono-tabular text-xs text-slate-100 focus:border-teal-400/50 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between font-mono-tabular text-[11px] text-slate-400">
+                    <span>Implied Est. Output:</span>
+                    <span className="text-emerald-300">
+                      ~{estimatedOut} {tokenOut.symbol}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void handleApproveTokenIn()}
+                      className="cursor-pointer rounded-md border border-teal-400/30 bg-teal-400/10 px-2.5 py-2 font-mono-tabular text-xs font-medium text-teal-300 transition hover:bg-teal-400/20"
+                    >
+                      1. Approve {tokenIn.symbol}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleExecuteSwap()}
+                      className="cursor-pointer rounded-md bg-teal-400 px-2.5 py-2 font-mono-tabular text-xs font-semibold text-slate-950 transition hover:bg-teal-300"
+                    >
+                      2. Swap (exactInputSingle)
+                    </button>
+                  </div>
+
+                  {swapTxState && (
+                    <div
+                      className={`rounded border p-2 text-[11px] ${
+                        swapTxState.status === "confirmed"
+                          ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+                          : swapTxState.status === "submitting"
+                            ? "border-teal-400/30 bg-teal-400/10 text-teal-200"
+                            : "border-rose-500/30 bg-rose-500/10 text-rose-200"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-1 font-mono-tabular">
+                        <span className="flex items-center gap-1">
+                          {swapTxState.status === "confirmed" ? (
+                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                          ) : swapTxState.status === "submitting" ? (
+                            <Flame className="h-3.5 w-3.5 animate-pulse text-teal-300" />
+                          ) : (
+                            <AlertTriangle className="h-3.5 w-3.5 text-rose-400" />
+                          )}
+                          {swapTxState.message}
+                        </span>
+                        {swapTxState.txHash && (
+                          <TxHashLink
+                            txHash={swapTxState.txHash}
+                            chainId={selectedPool.chainId}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Implied Spot Exchange Rates */}
               <div className="rounded-lg border border-white/[0.06] bg-[#07090E] p-4 space-y-2.5">

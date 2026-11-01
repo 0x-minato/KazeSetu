@@ -9,4 +9,6 @@ export const API_ROUTES = {
   liquidity: '/api/liquidity',
   staking: '/api/staking',
   analytics: '/api/analytics',
+  vaults: '/api/vaults',
+  notifications: '/api/notifications',
 } as const
