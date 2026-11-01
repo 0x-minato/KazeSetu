@@ -34,6 +34,24 @@ enum StakingEventType {
   CLAIM
 }
 
+enum VaultEventType {
+  DEPOSIT
+  WITHDRAW
+  REBALANCE
+  HANDLE_FEES
+}
+
+enum NotificationType {
+  SWAP
+  LIQUIDITY
+  STAKING
+  VAULT_DEPOSIT
+  VAULT_WITHDRAW
+  VAULT_REBALANCE
+  VAULT_FEES
+  REWARD
+}
+
 model Wallet {
   id        String   @id @default(cuid())
   address   String   @unique
@@ -46,6 +64,9 @@ model Wallet {
   liquidityEvent  LiquidityEvent[]
   stakingPosition StakingPosition[]
   stakingEvent    StakingEvent[]
+  vaultPositions  VaultPosition[]
+  vaultEvents     VaultEvent[]
+  notifications   Notification[]
   refreshSessions RefreshSession[]
 
   @@map("wallet")
@@ -144,6 +165,7 @@ model Pool {
   liquidity      LiquidityPosition[]
   liquidityEvent LiquidityEvent[]
   stakingFarms   StakingFarm[]
+  clVaults       ClVault[]
 
   @@unique([chainId, address])
   @@unique([chainId, token0Id, token1Id, feeBps])
@@ -271,3 +293,110 @@ model StakingEvent {
   @@index([walletId])
   @@map("staking_events")
 }
+
+model ClVault {
+  id                String   @id @default(cuid())
+  address           String
+  chainId           Int
+  name              String
+  symbol            String
+  poolId            String
+  managerAddress    String
+  swapRouterAddress String
+  fee               Int
+  tickLower         Int
+  tickUpper         Int
+  tokenId           String   @default("0")
+  liquidity         Decimal  @default(0) @db.Decimal(36, 18)
+  amount0           Decimal  @default(0) @db.Decimal(36, 18)
+  amount1           Decimal  @default(0) @db.Decimal(36, 18)
+  totalSupply       Decimal  @default(0) @db.Decimal(36, 18)
+  sqrtPriceX96      String   @default("0")
+  currentTick       Int      @default(0)
+  isPaused          Boolean  @default(false)
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  pool      Pool            @relation(fields: [poolId], references: [id], onDelete: Restrict)
+  positions VaultPosition[]
+  events    VaultEvent[]
+
+  @@unique([chainId, address])
+  @@index([poolId])
+  @@map("cl_vaults")
+}
+
+model VaultPosition {
+  id        String   @id @default(cuid())
+  walletId  String
+  vaultId   String
+  chainId   Int
+  shares    Decimal  @db.Decimal(36, 18)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  wallet Wallet  @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  vault  ClVault @relation(fields: [vaultId], references: [id], onDelete: Restrict)
+
+  @@unique([walletId, vaultId])
+  @@index([walletId])
+  @@map("vault_positions")
+}
+
+model VaultEvent {
+  id           String         @id @default(cuid())
+  walletId     String
+  vaultId      String
+  chainId      Int
+  type         VaultEventType
+  amount0      Decimal        @db.Decimal(36, 18)
+  amount1      Decimal        @db.Decimal(36, 18)
+  shares       Decimal        @default(0) @db.Decimal(36, 18)
+  liquidity    Decimal        @default(0) @db.Decimal(36, 18)
+  oldTickLower Int?
+  oldTickUpper Int?
+  newTickLower Int?
+  newTickUpper Int?
+  txHash       String?
+  status       SwapStatus     @default(SUCCESS)
+  createdAt    DateTime       @default(now())
+
+  wallet Wallet  @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  vault  ClVault @relation(fields: [vaultId], references: [id], onDelete: Restrict)
+
+  @@unique([chainId, txHash])
+  @@index([walletId])
+  @@index([vaultId])
+  @@map("vault_events")
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  walletId  String
+  chainId   Int
+  type      NotificationType
+  title     String
+  message   String
+  txHash    String?
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId, isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model IndexerCursor {
+  id              String   @id @default(cuid())
+  chainId         Int
+  contractAddress String
+  lastBlock       BigInt
+  updatedAt       DateTime @updatedAt
+
+  @@unique([chainId, contractAddress])
+  @@map("indexer_cursors")
+}
+

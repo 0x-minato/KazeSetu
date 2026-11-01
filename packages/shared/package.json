@@ -1,0 +1,14 @@
+{
+  "name": "@kazesetu/shared",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./abis": "./src/abis.ts",
+    "./cl-math": "./src/cl-math.ts",
+    "./queues": "./src/queues.ts"
+  }
+}

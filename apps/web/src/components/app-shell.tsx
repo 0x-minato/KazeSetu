@@ -1,24 +1,29 @@
 "use client"
 
 import React, { useState } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   Activity,
   BarChart3,
+  Bell,
+  CheckCheck,
   Layers,
   LogOut,
   PieChart,
   Shield,
   Sprout,
+  Vault,
   Wallet,
   Wind,
 } from "lucide-react"
 import { api, API_BASE_URL } from "@/lib/api"
 import { SUPPORTED_CHAINS } from "@/lib/chains"
-import { shortAddress } from "@/lib/format"
+import { formatTimestamp, shortAddress } from "@/lib/format"
 import { useAuth } from "@/context/auth-context"
 import { SiweGate } from "@/components/siwe-gate"
+import { TxHashLink } from "@/components/ui/primitives"
 import { OverviewView } from "@/components/views/overview-view"
+import { VaultsView } from "@/components/views/vaults-view"
 import { PortfolioView } from "@/components/views/portfolio-view"
 import { PoolsView } from "@/components/views/pools-view"
 import { StakingView } from "@/components/views/staking-view"
@@ -27,6 +32,7 @@ import { AdminView } from "@/components/views/admin-view"
 
 export type NavTab =
   | "overview"
+  | "vaults"
   | "portfolio"
   | "pools"
   | "staking"
@@ -35,6 +41,9 @@ export type NavTab =
 
 export function AppShell() {
   const [activeTab, setActiveTab] = useState<NavTab>("overview")
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const queryClient = useQueryClient()
+
   const {
     stage,
     address,
@@ -52,7 +61,34 @@ export function AppShell() {
     retry: false,
   })
 
+  const notificationsQuery = useQuery({
+    queryKey: ["notifications", "me"],
+    queryFn: () => api.notifications.me(),
+    enabled: stage === "authenticated",
+    refetchInterval: 15_000,
+  })
+
   const isApiOnline = healthQuery.data?.status === "ok"
+  const notifications = notificationsQuery.data ?? []
+  const unreadCount = notifications.filter((n) => !n.isRead).length
+
+  const handleMarkRead = async (id: string) => {
+    try {
+      await api.notifications.markRead(id)
+      await queryClient.invalidateQueries({ queryKey: ["notifications"] })
+    } catch {
+      // ignore
+    }
+  }
+
+  const handleMarkAllRead = async () => {
+    try {
+      await api.notifications.markAllRead()
+      await queryClient.invalidateQueries({ queryKey: ["notifications"] })
+    } catch {
+      // ignore
+    }
+  }
 
   const navItems: Array<{
     id: NavTab
@@ -61,6 +97,7 @@ export function AppShell() {
     badge?: string
   }> = [
     { id: "overview", label: "Overview", icon: BarChart3 },
+    { id: "vaults", label: "CL Vaults", icon: Vault, badge: "V3" },
     { id: "portfolio", label: "Portfolio", icon: PieChart },
     { id: "pools", label: "Pools", icon: Layers },
     { id: "staking", label: "Staking", icon: Sprout },
@@ -166,7 +203,7 @@ export function AppShell() {
             </nav>
           </div>
 
-          {/* Right Wallet & Chain Controls */}
+          {/* Right Wallet, Notifications & Chain Controls */}
           <div className="flex items-center gap-2.5">
             {/* Chain Switcher */}
             <select
@@ -184,6 +221,95 @@ export function AppShell() {
 
             {stage === "authenticated" && address ? (
               <div className="flex items-center gap-2">
+                {/* Live Notifications Bell + Drawer */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setNotificationsOpen((prev) => !prev)}
+                    title="Notifications"
+                    className="relative inline-flex cursor-pointer items-center justify-center rounded-lg border border-white/10 bg-[#0C1017] p-2 text-slate-300 transition hover:border-teal-400/40 hover:text-teal-300"
+                  >
+                    <Bell className="h-4 w-4" />
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-teal-400 px-1 font-mono-tabular text-[10px] font-bold text-slate-950">
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                      </span>
+                    )}
+                  </button>
+
+                  {notificationsOpen && (
+                    <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-xl border border-white/12 bg-[#0C1017] shadow-2xl z-50">
+                      <div className="flex items-center justify-between border-b border-white/[0.08] px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <span className="font-display text-xs font-semibold text-slate-100">
+                            Protocol Notifications
+                          </span>
+                          <span className="rounded bg-teal-400/15 px-1.5 py-0.5 font-mono-tabular text-[10px] text-teal-300">
+                            {unreadCount} unread
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void handleMarkAllRead()}
+                          disabled={unreadCount === 0}
+                          className="inline-flex cursor-pointer items-center gap-1 font-mono-tabular text-[11px] text-teal-300 transition hover:text-teal-200 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <CheckCheck className="h-3.5 w-3.5" />
+                          Mark all read
+                        </button>
+                      </div>
+
+                      <div className="max-h-96 overflow-y-auto divide-y divide-white/[0.06]">
+                        {notifications.length === 0 ? (
+                          <div className="px-4 py-10 text-center text-xs text-slate-500">
+                            No indexed or worker notifications for your wallet yet.
+                          </div>
+                        ) : (
+                          notifications.map((item) => (
+                            <div
+                              key={item.id}
+                              onClick={() => {
+                                if (!item.isRead) {
+                                  void handleMarkRead(item.id)
+                                }
+                              }}
+                              className={`cursor-pointer px-4 py-3 transition hover:bg-white/[0.03] ${
+                                !item.isRead ? "bg-teal-400/[0.04]" : ""
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="inline-flex items-center gap-1.5 font-mono-tabular text-[10px] font-semibold text-teal-300 uppercase">
+                                  {!item.isRead && (
+                                    <span className="h-1.5 w-1.5 rounded-full bg-teal-400" />
+                                  )}
+                                  {item.type}
+                                </span>
+                                <span className="font-mono-tabular text-[10px] text-slate-500">
+                                  {formatTimestamp(item.createdAt)}
+                                </span>
+                              </div>
+                              <div className="mt-1 text-xs font-medium text-slate-100">
+                                {item.title}
+                              </div>
+                              <p className="mt-0.5 text-[11px] text-slate-400">
+                                {item.message}
+                              </p>
+                              {item.txHash && item.chainId && (
+                                <div className="mt-1.5">
+                                  <TxHashLink
+                                    txHash={item.txHash}
+                                    chainId={item.chainId}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <div className="flex items-center gap-2 rounded-lg border border-teal-400/30 bg-[#0C1017] px-3 py-1.5">
                   <span className="h-2 w-2 rounded-full bg-emerald-400" />
                   <span className="font-mono-tabular text-xs font-medium text-slate-100">
@@ -234,7 +360,7 @@ export function AppShell() {
                   key={item.id}
                   type="button"
                   onClick={() => setActiveTab(item.id)}
-                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium ${
+                  className={`inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium ${
                     isActive
                       ? "bg-teal-400/15 text-teal-200"
                       : "text-slate-400 hover:text-slate-200"
@@ -258,6 +384,7 @@ export function AppShell() {
             {activeTab === "overview" && (
               <OverviewView onNavigate={(tab) => setActiveTab(tab)} />
             )}
+            {activeTab === "vaults" && <VaultsView />}
             {activeTab === "portfolio" && <PortfolioView />}
             {activeTab === "pools" && <PoolsView />}
             {activeTab === "staking" && <StakingView />}
@@ -276,7 +403,7 @@ export function AppShell() {
           <div className="flex items-center gap-4">
             <span>EIP-4361 SIWE</span>
             <span>·</span>
-            <span>Canonical AMM Pairs</span>
+            <span>Uniswap V3 CL Vaults</span>
             <span>·</span>
             <span>Prisma Decimal Precision</span>
           </div>

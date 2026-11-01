@@ -1,0 +1,26 @@
+{
+  "name": "@kazesetu/indexer",
+  "version": "1.0.0",
+  "description": "KazeSetu Blockchain Event Indexer Service",
+  "type": "module",
+  "scripts": {
+    "dev": "npx tsx --watch src/index.ts",
+    "start": "npx tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.9.1",
+    "@prisma/client": "^7.9.1",
+    "bullmq": "^5.40.0",
+    "dotenv": "^17.4.2",
+    "ioredis": "^5.6.0",
+    "pg": "^8.22.0",
+    "viem": "^2.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.2",
+    "@types/pg": "^8.20.0",
+    "tsx": "^4.23.1",
+    "typescript": "^7.0.2"
+  }
+}

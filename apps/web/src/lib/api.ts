@@ -4,6 +4,7 @@ import type {
   FarmData,
   Liquidity,
   LiquidityEvent,
+  NotificationData,
   Pool,
   Portfolio,
   StakingEvent,
@@ -11,6 +12,9 @@ import type {
   SwapData,
   Token,
   TokenPrice,
+  VaultData,
+  VaultEventData,
+  VaultPositionData,
 } from "./types"
 
 export const API_BASE_URL =
@@ -340,5 +344,81 @@ export const api = {
       apiRequest<StakingEvent>(
         `/api/staking/events/${encodeURIComponent(txHash)}?chainId=${chainId}`,
       ),
+  },
+
+  vaults: {
+    list: () => apiRequest<VaultData[]>("/api/vaults"),
+    get: (address: string, chainId: number) =>
+      apiRequest<VaultData>(
+        `/api/vaults/${encodeURIComponent(address)}?chainId=${chainId}`,
+      ),
+    positionsMe: () => apiRequest<VaultPositionData[]>("/api/vaults/me"),
+    eventsMe: () => apiRequest<VaultEventData[]>("/api/vaults/events/me"),
+    eventByTx: (txHash: string, chainId: number) =>
+      apiRequest<VaultEventData>(
+        `/api/vaults/events/${encodeURIComponent(txHash)}?chainId=${chainId}`,
+      ),
+    create: (vault: {
+      address: string
+      chainId: number
+      name: string
+      symbol: string
+      poolAddress: string
+      managerAddress: string
+      swapRouterAddress: string
+      fee: number
+      tickLower: number
+      tickUpper: number
+      tokenId?: string
+      liquidity?: string
+      amount0?: string
+      amount1?: string
+      totalSupply?: string
+    }) =>
+      apiRequest<VaultData>("/api/vaults", {
+        method: "POST",
+        body: { vault },
+      }),
+    updateState: (
+      address: string,
+      chainId: number,
+      body: {
+        tickLower?: number
+        tickUpper?: number
+        currentTick?: number
+        sqrtPriceX96?: string
+        tokenId?: string
+        liquidity: string
+        amount0: string
+        amount1: string
+        totalSupply: string
+        isPaused?: boolean
+        isActive?: boolean
+      },
+      workerKey?: string,
+    ) =>
+      apiRequest<VaultData>(
+        `/api/vaults/${encodeURIComponent(address)}?chainId=${chainId}`,
+        {
+          method: "PUT",
+          body,
+          workerKey,
+        },
+      ),
+  },
+
+  notifications: {
+    me: () => apiRequest<NotificationData[]>("/api/notifications/me"),
+    markRead: (id: string) =>
+      apiRequest<NotificationData>(
+        `/api/notifications/${encodeURIComponent(id)}/read`,
+        {
+          method: "PATCH",
+        },
+      ),
+    markAllRead: () =>
+      apiRequest<{ updatedCount: number }>("/api/notifications/read-all", {
+        method: "POST",
+      }),
   },
 }

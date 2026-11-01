@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs & caches
+.next/
+**/.next/
+out/
+dist/
+**/dist/
+build/
+**/build/
+*.tsbuildinfo
+**/*.tsbuildinfo
+next-env.d.ts
+
+# Generated Prisma client
+apps/api/app/generated/prisma/
+
+# Foundry / Solidity artifacts
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+
+# Environment variables & secrets
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Logs & OS files
+*.log
+npm-debug.log*
+pnpm-debug.log*
+.DS_Store
+Thumbs.db

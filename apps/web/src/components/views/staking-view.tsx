@@ -1,8 +1,15 @@
 "use client"
 
-import React, { useMemo } from "react"
-import { useQuery } from "@tanstack/react-query"
-import { Award, RefreshCw, Sprout } from "lucide-react"
+import React, { useMemo, useState } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import {
+  AlertTriangle,
+  Award,
+  CheckCircle2,
+  Flame,
+  RefreshCw,
+  Sprout,
+} from "lucide-react"
 import { api } from "@/lib/api"
 import {
   formatAmount,
@@ -10,6 +17,12 @@ import {
   formatTimestamp,
   formatUsd,
 } from "@/lib/format"
+import {
+  approveErc20,
+  claimFarmRewards,
+  stakeInFarm,
+  unstakeFromFarm,
+} from "@/lib/onchain"
 import {
   ChainBadge,
   CopyAddress,
@@ -19,7 +32,19 @@ import {
   TxHashLink,
 } from "@/components/ui/primitives"
 
+interface FarmTxFeedback {
+  farmKey: string
+  status: "submitting" | "confirmed" | "error"
+  message: string
+  txHash?: string
+  chainId: number
+}
+
 export function StakingView() {
+  const queryClient = useQueryClient()
+  const [amountByFarm, setAmountByFarm] = useState<Record<string, string>>({})
+  const [txFeedback, setTxFeedback] = useState<FarmTxFeedback | null>(null)
+
   const farmsQuery = useQuery({
     queryKey: ["staking", "farms"],
     queryFn: () => api.staking.farms(),
@@ -62,11 +87,50 @@ export function StakingView() {
     return map
   }, [myStakingQuery.data])
 
-  const refreshAll = () => {
-    void farmsQuery.refetch()
-    void myStakingQuery.refetch()
-    void stakingEventsQuery.refetch()
-    void pricesQuery.refetch()
+  const refreshAll = async () => {
+    await Promise.all([
+      farmsQuery.refetch(),
+      myStakingQuery.refetch(),
+      stakingEventsQuery.refetch(),
+      pricesQuery.refetch(),
+      queryClient.invalidateQueries({ queryKey: ["portfolio"] }),
+      queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+    ])
+  }
+
+  const executeFarmTx = async (
+    farmKey: string,
+    chainId: number,
+    label: string,
+    fn: () => Promise<{ hash: string }>,
+  ) => {
+    setTxFeedback({
+      farmKey,
+      chainId,
+      status: "submitting",
+      message: `${label}: awaiting wallet confirmation...`,
+    })
+    try {
+      const res = await fn()
+      setTxFeedback({
+        farmKey,
+        chainId,
+        status: "confirmed",
+        message: `${label} confirmed on-chain.`,
+        txHash: res.hash,
+      })
+      await refreshAll()
+    } catch (err) {
+      setTxFeedback({
+        farmKey,
+        chainId,
+        status: "error",
+        message:
+          err instanceof Error
+            ? err.message
+            : `${label} failed or was rejected.`,
+      })
+    }
   }
 
   return (
@@ -78,8 +142,8 @@ export function StakingView() {
         right={
           <button
             type="button"
-            onClick={refreshAll}
-            className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-[#0C1017] px-3.5 py-2 font-mono-tabular text-xs text-slate-200 transition hover:border-teal-400/40 hover:text-teal-300"
+            onClick={() => void refreshAll()}
+            className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-white/10 bg-[#0C1017] px-3.5 py-2 font-mono-tabular text-xs text-slate-200 transition hover:border-teal-400/40 hover:text-teal-300"
           >
             <RefreshCw
               className={`h-3.5 w-3.5 ${
@@ -108,6 +172,7 @@ export function StakingView() {
           (farmsQuery.data ?? []).map((farm) => {
             const key = `${farm.chainId}:${farm.address.toLowerCase()}`
             const userStaked = myStakeByFarm.get(key) ?? "0"
+            const inputAmount = amountByFarm[key] ?? ""
             const p0 =
               priceMap.get(
                 `${farm.chainId}:${farm.pool.token0.address.toLowerCase()}`,
@@ -123,6 +188,8 @@ export function StakingView() {
             const poolTvl =
               (Number(farm.pool.reserve0) || 0) * p0 +
               (Number(farm.pool.reserve1) || 0) * p1
+            const feedback =
+              txFeedback?.farmKey === key ? txFeedback : null
 
             return (
               <div
@@ -173,6 +240,150 @@ export function StakingView() {
                         Fee: {formatBps(farm.pool.feeBps)}
                       </div>
                     </div>
+                  </div>
+
+                  {/* Interactive On-Chain Staking Action Panel */}
+                  <div className="mt-4 space-y-2.5 rounded-lg border border-white/[0.06] bg-[#07090E] p-3.5">
+                    <div className="flex items-center justify-between font-mono-tabular text-[11px] text-slate-400">
+                      <span>LP Amount (18 dec)</span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setAmountByFarm((prev) => ({
+                            ...prev,
+                            [key]: userStaked,
+                          }))
+                        }
+                        className="cursor-pointer text-teal-300 hover:underline"
+                      >
+                        Staked: {formatAmount(userStaked, 4)} LP
+                      </button>
+                    </div>
+
+                    <input
+                      type="text"
+                      value={inputAmount}
+                      onChange={(e) =>
+                        setAmountByFarm((prev) => ({
+                          ...prev,
+                          [key]: e.target.value,
+                        }))
+                      }
+                      placeholder="0.0"
+                      className="w-full rounded-lg border border-white/10 bg-[#0C1017] px-3 py-1.5 font-mono-tabular text-xs text-slate-100 placeholder-slate-500 focus:border-teal-400/50 focus:outline-none"
+                    />
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void executeFarmTx(
+                            key,
+                            farm.chainId,
+                            "Approve LP",
+                            () =>
+                              approveErc20(
+                                farm.pool.address,
+                                farm.address,
+                                inputAmount || "1000000",
+                                18,
+                              ),
+                          )
+                        }
+                        className="cursor-pointer rounded-md border border-white/10 bg-[#0C1017] px-2.5 py-1.5 font-mono-tabular text-[11px] font-medium text-slate-200 transition hover:border-teal-400/40 hover:text-teal-300"
+                      >
+                        1. Approve LP
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={!farm.isActive}
+                        onClick={() =>
+                          void executeFarmTx(
+                            key,
+                            farm.chainId,
+                            "Stake LP",
+                            () =>
+                              stakeInFarm({
+                                farmAddress: farm.address,
+                                lpTokenAddress: farm.pool.address,
+                                amountRaw: inputAmount,
+                              }),
+                          )
+                        }
+                        className="cursor-pointer rounded-md bg-teal-400 px-2.5 py-1.5 font-mono-tabular text-[11px] font-semibold text-slate-950 transition hover:bg-teal-300 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        2. Stake LP
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void executeFarmTx(
+                            key,
+                            farm.chainId,
+                            "Unstake LP",
+                            () =>
+                              unstakeFromFarm({
+                                farmAddress: farm.address,
+                                amountRaw: inputAmount || userStaked,
+                              }),
+                          )
+                        }
+                        className="cursor-pointer rounded-md border border-amber-400/30 bg-amber-400/10 px-2.5 py-1.5 font-mono-tabular text-[11px] font-medium text-amber-300 transition hover:bg-amber-400/20"
+                      >
+                        Unstake LP
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void executeFarmTx(
+                            key,
+                            farm.chainId,
+                            `Claim ${farm.rewardToken.symbol}`,
+                            () =>
+                              claimFarmRewards({
+                                farmAddress: farm.address,
+                              }),
+                          )
+                        }
+                        className="cursor-pointer rounded-md border border-emerald-400/30 bg-emerald-400/15 px-2.5 py-1.5 font-mono-tabular text-[11px] font-semibold text-emerald-300 transition hover:bg-emerald-400/25"
+                      >
+                        Claim Rewards
+                      </button>
+                    </div>
+
+                    {feedback && (
+                      <div
+                        className={`mt-2 rounded border p-2 text-[11px] ${
+                          feedback.status === "confirmed"
+                            ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+                            : feedback.status === "submitting"
+                              ? "border-teal-400/30 bg-teal-400/10 text-teal-200"
+                              : "border-rose-500/30 bg-rose-500/10 text-rose-200"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-1 font-mono-tabular">
+                          <span className="flex items-center gap-1">
+                            {feedback.status === "confirmed" ? (
+                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                            ) : feedback.status === "submitting" ? (
+                              <Flame className="h-3.5 w-3.5 animate-pulse text-teal-300" />
+                            ) : (
+                              <AlertTriangle className="h-3.5 w-3.5 text-rose-400" />
+                            )}
+                            {feedback.message}
+                          </span>
+                          {feedback.txHash && (
+                            <TxHashLink
+                              txHash={feedback.txHash}
+                              chainId={feedback.chainId}
+                            />
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
