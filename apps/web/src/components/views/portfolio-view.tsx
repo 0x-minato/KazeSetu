@@ -58,6 +58,7 @@ export function PortfolioView() {
 
   const totalUsd = Number(portfolioQuery.data?.totalValueUsd ?? 0)
   const positions = portfolioQuery.data?.positions ?? []
+  const vaultPositions = portfolioQuery.data?.vaultPositions ?? []
 
   const syncAll = () => {
     void portfolioQuery.refetch()
@@ -118,17 +119,31 @@ export function PortfolioView() {
           {/* Allocation bar */}
           <div className="mt-6">
             <div className="flex items-center justify-between font-mono-tabular text-[11px] text-slate-400">
-              <span>Pool Allocation Breakdown</span>
-              <span>{positions.length} active positions</span>
+              <span>Pool &amp; Vault Allocation Breakdown</span>
+              <span>
+                {positions.length + vaultPositions.length} active positions
+              </span>
             </div>
             <div className="mt-2 flex h-2 w-full overflow-hidden rounded-full bg-white/[0.06]">
-              {positions.length === 0 || totalUsd <= 0 ? (
+              {positions.length + vaultPositions.length === 0 ||
+              totalUsd <= 0 ? (
                 <div className="h-full w-full bg-white/[0.06]" />
               ) : (
-                positions.map((pos, idx) => {
+                [
+                  ...positions.map((pos) => ({
+                    key: `pool:${pos.pool.chainId}:${pos.pool.address}`,
+                    label: `${pos.pool.token0.symbol}/${pos.pool.token1.symbol}`,
+                    valueUsd: pos.valueUsd,
+                  })),
+                  ...vaultPositions.map((vp) => ({
+                    key: `vault:${vp.chainId}:${vp.vault.address}`,
+                    label: `${vp.vault.symbol} Vault`,
+                    valueUsd: vp.valueUsd,
+                  })),
+                ].map((item, idx) => {
                   const share = Math.max(
                     2,
-                    ((Number(pos.valueUsd) || 0) / totalUsd) * 100,
+                    ((Number(item.valueUsd) || 0) / totalUsd) * 100,
                   )
                   const colors = [
                     "bg-teal-400",
@@ -139,10 +154,10 @@ export function PortfolioView() {
                   ]
                   return (
                     <div
-                      key={`${pos.pool.chainId}:${pos.pool.address}`}
+                      key={item.key}
                       style={{ width: `${share}%` }}
                       className={`${colors[idx % colors.length]} border-r border-[#07090E]`}
-                      title={`${pos.pool.token0.symbol}/${pos.pool.token1.symbol}: ${formatUsd(pos.valueUsd)}`}
+                      title={`${item.label}: ${formatUsd(item.valueUsd)}`}
                     />
                   )
                 })
@@ -311,6 +326,104 @@ export function PortfolioView() {
                     </tr>
                   )
                 })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Concentrated Liquidity Vault Positions */}
+      <div className="rounded-xl border border-white/[0.08] bg-[#0C1017]">
+        <div className="flex items-center justify-between border-b border-white/[0.08] px-6 py-4">
+          <div>
+            <h2 className="font-display text-base font-semibold text-slate-100">
+              Concentrated Liquidity Vault Shares (KazeClVault)
+            </h2>
+            <p className="text-xs text-slate-400">
+              Proportional token claims from active Uniswap V3 tick ranges (
+              <code className="font-mono-tabular text-slate-300">
+                shares / totalSupply × vaultAmounts
+              </code>
+              ).
+            </p>
+          </div>
+          <span className="font-mono-tabular text-xs text-slate-400">
+            {vaultPositions.length} vaults
+          </span>
+        </div>
+
+        {vaultPositions.length === 0 ? (
+          <div className="px-6 py-10 text-center text-xs text-slate-500">
+            No active KazeClVault share positions held by this wallet.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-white/[0.06] font-mono-tabular text-[11px] tracking-wider text-slate-400 uppercase">
+                  <th className="px-6 py-3.5">Vault</th>
+                  <th className="px-4 py-3.5">Chain</th>
+                  <th className="px-4 py-3.5">Tick Range</th>
+                  <th className="px-4 py-3.5 text-right">Shares</th>
+                  <th className="px-4 py-3.5 text-right">Vault Share</th>
+                  <th className="px-4 py-3.5 text-right">Underlying Claim</th>
+                  <th className="px-6 py-3.5 text-right">USD Valuation</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.05]">
+                {vaultPositions.map((vp) => (
+                  <tr
+                    key={`${vp.chainId}:${vp.vault.address}`}
+                    className="transition hover:bg-white/[0.02]"
+                  >
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <TokenPairGlyph
+                          symbol0={vp.vault.pool.token0.symbol}
+                          symbol1={vp.vault.pool.token1.symbol}
+                        />
+                        <div>
+                          <div className="font-medium text-slate-100">
+                            {vp.vault.name} ({vp.vault.symbol})
+                          </div>
+                          <CopyAddress
+                            address={vp.vault.address}
+                            chainId={vp.chainId}
+                          />
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4">
+                      <ChainBadge chainId={vp.chainId} />
+                    </td>
+                    <td className="px-4 py-4 font-mono-tabular text-xs text-slate-300">
+                      [{vp.vault.tickLower}, {vp.vault.tickUpper}]
+                    </td>
+                    <td className="px-4 py-4 text-right font-mono-tabular text-xs text-slate-200">
+                      {formatAmount(vp.shares, 6)}
+                    </td>
+                    <td className="px-4 py-4 text-right font-mono-tabular text-xs text-teal-300">
+                      {Number(vp.sharePct).toFixed(4)}%
+                    </td>
+                    <td className="px-4 py-4 text-right font-mono-tabular text-xs text-slate-200">
+                      <div>
+                        {formatAmount(vp.amount0, 6)}{" "}
+                        <span className="text-slate-400">
+                          {vp.vault.pool.token0.symbol}
+                        </span>
+                      </div>
+                      <div className="mt-0.5">
+                        {formatAmount(vp.amount1, 6)}{" "}
+                        <span className="text-slate-400">
+                          {vp.vault.pool.token1.symbol}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-right font-mono-tabular text-sm font-semibold text-slate-100">
+                      {formatUsd(vp.valueUsd)}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

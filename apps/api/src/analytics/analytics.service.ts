@@ -1,11 +1,15 @@
 import { Decimal } from "@prisma/client/runtime/client"
-import { LiquidityEventType } from "../../app/generated/prisma/enums"
+import { LiquidityEventType, VaultEventType } from "../../app/generated/prisma/enums"
 import { getAllSwapsService } from "../swaps/swaps.service"
 import { getPoolsTvlService } from "../pools/pools.service"
 import { getLiquidityEvents24HrService } from "../liquidity/liquidity.service"
+import { getVaultEvents24HrService, getVaultsService } from "../vaults/vaults.service"
 
 export const getTVLService = async (): Promise<{ totalValueUsd: string }> => {
-    const activePools = await getPoolsTvlService()
+    const [activePools, activeVaults] = await Promise.all([
+        getPoolsTvlService(),
+        getVaultsService(),
+    ])
 
     let totalValueUsd = new Decimal(0)
 
@@ -17,6 +21,10 @@ export const getTVLService = async (): Promise<{ totalValueUsd: string }> => {
             .add(new Decimal(pool.reserve1).mul(price1))
 
         totalValueUsd = totalValueUsd.add(poolTvl)
+    }
+
+    for (const vault of activeVaults) {
+        totalValueUsd = totalValueUsd.add(new Decimal(vault.tvlUsd))
     }
 
     return {
@@ -42,7 +50,10 @@ export const getVolumeService = async (): Promise<{ volumeUsd: string }> => {
 }
 
 export const getLiquidityService = async (): Promise<{liquidityUsd: string}> => {
-    const liquidities = await getLiquidityEvents24HrService()
+    const [liquidities, vaultEvents] = await Promise.all([
+        getLiquidityEvents24HrService(),
+        getVaultEvents24HrService(),
+    ])
 
     let liquidity = new Decimal(0)
 
@@ -55,6 +66,18 @@ export const getLiquidityService = async (): Promise<{liquidityUsd: string}> => 
         const signedValue = price0.mul(amount0).add(price1.mul(amount1))
         const currLiq =
           liq.type === LiquidityEventType.REMOVE
+            ? signedValue.neg()
+            : signedValue
+
+        liquidity = liquidity.add(currLiq)
+    }
+
+    for (const ev of vaultEvents) {
+        const price0 = ev.vault.pool.token0.price?.priceUsd ?? new Decimal(0)
+        const price1 = ev.vault.pool.token1.price?.priceUsd ?? new Decimal(0)
+        const signedValue = price0.mul(ev.amount0).add(price1.mul(ev.amount1))
+        const currLiq =
+          ev.type === VaultEventType.WITHDRAW
             ? signedValue.neg()
             : signedValue
 

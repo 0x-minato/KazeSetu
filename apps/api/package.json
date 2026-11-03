@@ -11,6 +11,7 @@
     "prisma:format": "npx prisma format",
     "prisma:migrate": "npx prisma migrate dev",
     "prisma:generate": "npx prisma generate",
+    "prisma:seed": "npx tsx src/scripts/seed.ts",
     "prisma:all": "npm run prisma:format && npm run prisma:migrate && npm run prisma:generate"
   },
   "keywords": [],
