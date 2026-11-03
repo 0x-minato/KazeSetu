@@ -1,21 +1,22 @@
 {
-  "name": "kazeSetu",
+  "name": "kazesetu",
   "version": "1.0.0",
-  "description": "> Production-grade DeFi Portfolio & Liquidity Platform",
-  "main": "index.js",
+  "private": true,
+  "description": "KazeSetu — Institutional Concentrated Liquidity & DeFi Portfolio Platform",
   "scripts": {
-    
+    "dev:api": "npm --prefix apps/api run dev",
+    "dev:web": "npm --prefix apps/web run dev",
+    "dev:indexer": "npm --prefix apps/indexer run dev",
+    "dev:worker": "npm --prefix apps/worker run dev",
+    "typecheck": "npm --prefix apps/api run typecheck && npm --prefix apps/indexer run typecheck && npm --prefix apps/worker run typecheck && npm --prefix apps/web run typecheck",
+    "build:web": "npm --prefix apps/web run build",
+    "db:generate": "npm --prefix apps/api run prisma:generate",
+    "db:migrate": "npm --prefix apps/api run prisma:migrate",
+    "db:seed": "npm --prefix apps/api run prisma:seed",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/0x-minato/KazeSetu.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "bugs": {
-    "url": "https://github.com/0x-minato/KazeSetu/issues"
-  },
-  "homepage": "https://github.com/0x-minato/KazeSetu#readme"
+  "engines": {
+    "node": ">=20.0.0"
+  }
 }

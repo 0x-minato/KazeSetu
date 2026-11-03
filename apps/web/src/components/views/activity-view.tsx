@@ -12,7 +12,12 @@ import {
 import { api } from "@/lib/api"
 import { SUPPORTED_CHAINS } from "@/lib/chains"
 import { formatAmount, formatTimestamp } from "@/lib/format"
-import type { LiquidityEvent, StakingEvent, SwapData } from "@/lib/types"
+import type {
+  LiquidityEvent,
+  StakingEvent,
+  SwapData,
+  VaultEventData,
+} from "@/lib/types"
 import {
   ChainBadge,
   SectionHeader,
@@ -20,8 +25,8 @@ import {
   TxHashLink,
 } from "@/components/ui/primitives"
 
-type ActivityStream = "swaps" | "liquidity" | "staking"
-type LookupKind = "swap" | "liquidity" | "staking"
+type ActivityStream = "swaps" | "liquidity" | "staking" | "vaults"
+type LookupKind = "swap" | "liquidity" | "staking" | "vault"
 
 export function ActivityView() {
   const [stream, setStream] = useState<ActivityStream>("swaps")
@@ -34,6 +39,7 @@ export function ActivityView() {
     | { kind: "swap"; data: SwapData }
     | { kind: "liquidity"; data: LiquidityEvent }
     | { kind: "staking"; data: StakingEvent }
+    | { kind: "vault"; data: VaultEventData }
     | null
   >(null)
 
@@ -50,6 +56,11 @@ export function ActivityView() {
   const stakingEventsQuery = useQuery({
     queryKey: ["staking", "events", "me"],
     queryFn: () => api.staking.eventsMe(),
+  })
+
+  const vaultEventsQuery = useQuery({
+    queryKey: ["vaults", "events", "me"],
+    queryFn: () => api.vaults.eventsMe(),
   })
 
   const handleLookup = async (e: React.FormEvent) => {
@@ -73,9 +84,12 @@ export function ActivityView() {
       } else if (lookupKind === "liquidity") {
         const data = await api.liquidity.eventByTx(cleanHash, lookupChainId)
         setLookupResult({ kind: "liquidity", data })
-      } else {
+      } else if (lookupKind === "staking") {
         const data = await api.staking.eventByTx(cleanHash, lookupChainId)
         setLookupResult({ kind: "staking", data })
+      } else {
+        const data = await api.vaults.eventByTx(cleanHash, lookupChainId)
+        setLookupResult({ kind: "vault", data })
       }
     } catch (err) {
       setLookupError(
@@ -153,6 +167,7 @@ export function ActivityView() {
               <option value="swap">Swap Event</option>
               <option value="liquidity">Liquidity Event</option>
               <option value="staking">Staking Event</option>
+              <option value="vault">CL Vault Event</option>
             </select>
           </div>
 
@@ -294,6 +309,40 @@ export function ActivityView() {
                 </div>
               </div>
             )}
+
+            {lookupResult.kind === "vault" && (
+              <div className="mt-3 grid gap-3 font-mono-tabular text-xs sm:grid-cols-4">
+                <div>
+                  <span className="text-slate-500">Action:</span>{" "}
+                  <span className="text-teal-300">
+                    {lookupResult.data.type}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500">Vault:</span>{" "}
+                  <span className="text-slate-200">
+                    {lookupResult.data.vault.name} (
+                    {lookupResult.data.vault.symbol})
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500">Amounts:</span>{" "}
+                  <span className="text-slate-200">
+                    {formatAmount(lookupResult.data.amount0)}{" "}
+                    {lookupResult.data.vault.pool.token0.symbol} /{" "}
+                    {formatAmount(lookupResult.data.amount1)}{" "}
+                    {lookupResult.data.vault.pool.token1.symbol}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500">Shares / Liq:</span>{" "}
+                  <span className="text-emerald-300">
+                    {formatAmount(lookupResult.data.shares)} sh ·{" "}
+                    {formatAmount(lookupResult.data.liquidity)} liq
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -320,6 +369,12 @@ export function ActivityView() {
                 label: "Staking Events",
                 count: stakingEventsQuery.data?.length ?? 0,
                 icon: Sprout,
+              },
+              {
+                id: "vaults" as const,
+                label: "CL Vault Events",
+                count: vaultEventsQuery.data?.length ?? 0,
+                icon: Layers,
               },
             ].map((tab) => {
               const Icon = tab.icon
@@ -517,6 +572,77 @@ export function ActivityView() {
                       </td>
                       <td className="px-4 py-3.5 text-right font-mono-tabular text-xs text-slate-200">
                         {formatAmount(ev.amount, 6)}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <StatusPill status={ev.status} />
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <TxHashLink txHash={ev.txHash} chainId={ev.chainId} />
+                      </td>
+                      <td className="px-6 py-3.5 text-right font-mono-tabular text-xs text-slate-400">
+                        {formatTimestamp(ev.createdAt)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+
+        {/* Vault Events Table */}
+        {stream === "vaults" && (
+          <div className="overflow-x-auto">
+            {(vaultEventsQuery.data ?? []).length === 0 ? (
+              <div className="px-6 py-14 text-center text-sm text-slate-500">
+                No indexed CL Vault events for your wallet yet.
+              </div>
+            ) : (
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-white/[0.06] font-mono-tabular text-[11px] tracking-wider text-slate-400 uppercase">
+                    <th className="px-6 py-3">Type</th>
+                    <th className="px-4 py-3">Vault</th>
+                    <th className="px-4 py-3">Chain</th>
+                    <th className="px-4 py-3 text-right">Amounts</th>
+                    <th className="px-4 py-3 text-right">Shares / Liquidity</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Tx Hash</th>
+                    <th className="px-6 py-3 text-right">Timestamp</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/[0.05]">
+                  {(vaultEventsQuery.data ?? []).map((ev, i) => (
+                    <tr
+                      key={`${ev.txHash ?? i}-${ev.createdAt}`}
+                      className="transition hover:bg-white/[0.02]"
+                    >
+                      <td className="px-6 py-3.5">
+                        <span className="inline-flex rounded border border-teal-400/30 bg-teal-400/10 px-2 py-0.5 font-mono-tabular text-[11px] font-medium text-teal-300">
+                          {ev.type}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 font-medium text-slate-100">
+                        {ev.vault.name} ({ev.vault.symbol})
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <ChainBadge chainId={ev.chainId} />
+                      </td>
+                      <td className="px-4 py-3.5 text-right font-mono-tabular text-xs text-slate-200">
+                        <div>
+                          {formatAmount(ev.amount0, 4)}{" "}
+                          {ev.vault.pool.token0.symbol}
+                        </div>
+                        <div className="text-slate-400">
+                          {formatAmount(ev.amount1, 4)}{" "}
+                          {ev.vault.pool.token1.symbol}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5 text-right font-mono-tabular text-xs text-teal-300">
+                        <div>{formatAmount(ev.shares, 4)} sh</div>
+                        <div className="text-slate-400">
+                          {formatAmount(ev.liquidity, 4)} liq
+                        </div>
                       </td>
                       <td className="px-4 py-3.5">
                         <StatusPill status={ev.status} />

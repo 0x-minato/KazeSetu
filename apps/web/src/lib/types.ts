@@ -41,6 +41,7 @@ export interface Position {
 
 export interface Portfolio {
   positions: Position[]
+  vaultPositions?: VaultPositionData[]
   totalValueUsd: string
 }
 

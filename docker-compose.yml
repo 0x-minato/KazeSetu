@@ -1,0 +1,127 @@
+name: kazesetu
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: kazesetu-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-KazeSetu}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-KazeSetu}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: kazesetu-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    container_name: kazesetu-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: 3001
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-KazeSetu}?schema=public
+      SIWE_DOMAIN: ${SIWE_DOMAIN:-localhost:5173}
+      SIWE_URI: ${SIWE_URI:-http://localhost:5173}
+      SIWE_ALLOWED_CHAIN_IDS: ${SIWE_ALLOWED_CHAIN_IDS:-1,11155111,8453,42161,137,31337}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-kazesetu-production-jwt-secret-change-me}
+      ADMIN_ADDRESS: ${ADMIN_ADDRESS:-0x0000000000000000000000000000000000000000}
+      WORKER_API_KEY: ${WORKER_API_KEY:-kazesetu-internal-worker-secret}
+    ports:
+      - "3001:3001"
+    profiles:
+      - full
+
+  indexer:
+    build:
+      context: .
+      dockerfile: docker/indexer.Dockerfile
+    container_name: kazesetu-indexer
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-KazeSetu}?schema=public
+      REDIS_URL: redis://redis:6379
+      RPC_URL: ${RPC_URL:-https://ethereum-rpc.publicnode.com}
+      ADMIN_ADDRESS: ${ADMIN_ADDRESS:-0x0000000000000000000000000000000000000000}
+      POLL_INTERVAL_MS: ${POLL_INTERVAL_MS:-10000}
+      STATE_SYNC_INTERVAL_MS: ${STATE_SYNC_INTERVAL_MS:-60000}
+    profiles:
+      - full
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/worker.Dockerfile
+    container_name: kazesetu-worker
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_started
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-KazeSetu}?schema=public
+      REDIS_URL: redis://redis:6379
+      API_BASE_URL: http://api:3001
+      WORKER_API_KEY: ${WORKER_API_KEY:-kazesetu-internal-worker-secret}
+      ADMIN_ADDRESS: ${ADMIN_ADDRESS:-0x0000000000000000000000000000000000000000}
+      RPC_URL: ${RPC_URL:-https://ethereum-rpc.publicnode.com}
+    profiles:
+      - full
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+    container_name: kazesetu-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+    ports:
+      - "5173:5173"
+    profiles:
+      - full
+
+volumes:
+  postgres_data:
+  redis_data:

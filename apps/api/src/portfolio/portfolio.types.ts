@@ -1,4 +1,5 @@
 import { Pool } from "../pools/pools.types";
+import { VaultPositionData } from "../vaults/vaults.types";
 
 export interface Position {
     pool: Pool
@@ -9,5 +10,6 @@ export interface Position {
 
 export interface Portfolio {
     positions: Position[],
+    vaultPositions: VaultPositionData[],
     totalValueUsd: string
 }

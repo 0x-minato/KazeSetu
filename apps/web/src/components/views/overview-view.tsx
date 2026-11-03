@@ -29,7 +29,9 @@ import {
 export function OverviewView({
   onNavigate,
 }: {
-  onNavigate: (tab: "portfolio" | "pools" | "staking" | "activity") => void
+  onNavigate: (
+    tab: "portfolio" | "vaults" | "pools" | "staking" | "activity",
+  ) => void
 }) {
   const overviewQuery = useQuery({
     queryKey: ["analytics", "overview"],
@@ -54,6 +56,11 @@ export function OverviewView({
   const farmsQuery = useQuery({
     queryKey: ["staking", "farms"],
     queryFn: () => api.staking.farms(),
+  })
+
+  const vaultsQuery = useQuery({
+    queryKey: ["vaults", "list"],
+    queryFn: () => api.vaults.list(),
   })
 
   const priceMap = useMemo(() => {
@@ -95,6 +102,7 @@ export function OverviewView({
     void tokensQuery.refetch()
     void poolsQuery.refetch()
     void farmsQuery.refetch()
+    void vaultsQuery.refetch()
   }
 
   const netLiquidityNum = Number(overviewQuery.data?.liquidity ?? 0)
@@ -134,9 +142,10 @@ export function OverviewView({
               : formatUsd(overviewQuery.data?.tvl ?? "0")}
           </div>
           <div className="mt-3 flex items-center justify-between border-t border-white/[0.06] pt-3 text-xs text-slate-400">
-            <span>Active AMM Pools</span>
+            <span>Active Pools &amp; CL Vaults</span>
             <span className="font-mono-tabular text-slate-200">
-              {poolsQuery.data?.length ?? 0} pools
+              {poolsQuery.data?.length ?? 0} pools ·{" "}
+              {vaultsQuery.data?.length ?? 0} vaults
             </span>
           </div>
         </div>
@@ -397,6 +406,66 @@ export function OverviewView({
                       />
                     </div>
                     <StatusPill status={farm.isActive ? "ACTIVE" : "PAUSED"} />
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Concentrated Liquidity Vaults Summary Card */}
+          <div className="rounded-xl border border-white/[0.08] bg-[#0C1017] p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <Layers className="h-4 w-4 text-teal-400" />
+                <h3 className="font-display text-sm font-semibold text-slate-100">
+                  Concentrated Liquidity Vaults
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => onNavigate("vaults")}
+                className="inline-flex items-center gap-1 font-mono-tabular text-xs text-teal-300 hover:text-teal-200"
+              >
+                Open Vaults
+                <ArrowUpRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-2.5">
+              {(vaultsQuery.data ?? []).length === 0 ? (
+                <p className="text-xs text-slate-500">
+                  No Concentrated Liquidity Vaults registered yet.
+                </p>
+              ) : (
+                (vaultsQuery.data ?? []).slice(0, 4).map((vault) => (
+                  <div
+                    key={`${vault.chainId}:${vault.address}`}
+                    className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-[#07090E]/70 px-3.5 py-2.5"
+                  >
+                    <div>
+                      <div className="text-xs font-medium text-slate-200">
+                        {vault.name} ({vault.symbol}) ·{" "}
+                        <span className="font-mono-tabular text-teal-300">
+                          [{vault.tickLower}, {vault.tickUpper}]
+                        </span>
+                      </div>
+                      <CopyAddress
+                        address={vault.address}
+                        chainId={vault.chainId}
+                      />
+                    </div>
+                    <div className="text-right">
+                      <div className="font-mono-tabular text-xs font-semibold text-slate-100">
+                        {formatUsd(vault.tvlUsd)}
+                      </div>
+                      <span
+                        className={`font-mono-tabular text-[10px] ${
+                          vault.inRange ? "text-emerald-400" : "text-amber-400"
+                        }`}
+                      >
+                        {vault.inRange ? "IN RANGE" : "OUT OF RANGE"}
+                      </span>
+                    </div>
                   </div>
                 ))
               )}

@@ -17,6 +17,7 @@ import {
     getUserVaultEvents,
     getUserVaultPositions,
     getVaultByAddressAndChainId,
+    getVaultEvents24HrSuccess,
     updateClVaultState,
 } from "./vaults.repository"
 import { VaultData, VaultEventData, VaultPositionData } from "./vaults.types"
@@ -66,6 +67,10 @@ export const getVaultsService = async (): Promise<VaultData[]> => {
     }
 
     return results
+}
+
+export const getVaultEvents24HrService = async () => {
+    return getVaultEvents24HrSuccess()
 }
 
 export const getVaultService = async (

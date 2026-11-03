@@ -4,6 +4,7 @@ import { Pool } from "../pools/pools.types"
 import { getPriceUsdOrZero } from "../prices/prices.service"
 import { getUserPositionsService } from "../staking/staking.service"
 import { internalServerError } from "../utils/api-error"
+import { getUserVaultPositionsService } from "../vaults/vaults.service"
 import { Portfolio } from "./portfolio.types"
 
 const poolKey = (pool: Pool) => `${pool.chainId}:${pool.address.toLowerCase()}`
@@ -21,9 +22,10 @@ export const getUserPortfolio = async (address: string): Promise<Portfolio> => {
         return price
     }
 
-    const [liquidityData, stakingData] = await Promise.all([
+    const [liquidityData, stakingData, vaultPositions] = await Promise.all([
         getLiquidityService(address),
         getUserPositionsService(address),
+        getUserVaultPositionsService(address),
     ])
 
     const lpByPool = new Map<string, { pool: Pool, lpTokenAmount: Decimal }>()
@@ -49,6 +51,7 @@ export const getUserPortfolio = async (address: string): Promise<Portfolio> => {
 
     const portfolio: Portfolio = {
         positions: [],
+        vaultPositions,
         totalValueUsd: "0",
     }
     let totalValue = new Decimal(0)
@@ -75,6 +78,10 @@ export const getUserPortfolio = async (address: string): Promise<Portfolio> => {
             amount1: amount1.toString(),
         })
         totalValue = totalValue.add(valueUsd)
+    }
+
+    for (const vaultPos of vaultPositions) {
+        totalValue = totalValue.add(new Decimal(vaultPos.valueUsd))
     }
 
     portfolio.totalValueUsd = totalValue.toString()

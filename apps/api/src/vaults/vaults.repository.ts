@@ -74,6 +74,29 @@ export const getUserVaultEvents = (address: string) => {
     })
 }
 
+export const getVaultEvents24HrSuccess = () => {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000)
+    return prisma.vaultEvent.findMany({
+        where: {
+            status: "SUCCESS",
+            type: { in: ["DEPOSIT", "WITHDRAW"] },
+            createdAt: { gte: since },
+        },
+        include: {
+            vault: {
+                include: {
+                    pool: {
+                        include: {
+                            token0: { include: { price: true } },
+                            token1: { include: { price: true } },
+                        },
+                    },
+                },
+            },
+        },
+    })
+}
+
 export const getUserVaultEventByTxHashAndChainId = (
     address: string,
     chainId: number,
